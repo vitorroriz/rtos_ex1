@@ -7,38 +7,52 @@ from threading import Thread
 
 def receive():	
 	print "Init receive!\n"
-	port = 30000
+	port = 33546
 	host = "129.241.187.255" # '' means all available interfaces
-	host = "127.0.0.255" # '' means all available interfaces
-
-	#UDP (datagram) socket creation
+	host = "129.0.0.43" # '' means all available interfaces
+	host = "129.241.187.43" 
+	#TCP (datagram) socket creation
 	try:
-		s1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		print "Socket RCV created with host: " + host
 	except	socket.error, msg:
 		print "Failed to create scoket for RCV. Error code: " + str(msg[0]) + "Message " + msg
 		sys.exit()
 
-	#Trying to bind to a local host and port
+	server_addr = (host,port)
+	s1.connect(server_addr)
 
-	try:
-		s1.bind(("",port))
-	except socket.error, msg:
-		print "Bind failed in RCV. Error code. " + str(msg[0]) + msg[1]
-		sys.exit()
+	data_size_received = 0
+	max_data_size = 1024
+	data = ""
 
-	print "Socket bind complete for RCV!"		
-	print "waiting on port:", port
-
-	#Keep talking with client
 	while 1:
-		data, addr = s1.recvfrom(1024)
+#		s1.send("Hello TCP World\0")
 
-#		s.sendto(reply,addr)
-		#if(addr[0] != host):
-		print "Message from: " + addr[0] + ":" + str(addr[1]) + ":"
+#		while "/0" not in data:
+
+		while(data.find('\0')==-1):
+			new_data = s1.recv(max_data_size)
+			data = data + new_data
 		print data
-#		print dir(socket.AF_INET)
+		data = ""
+		s1.send("Hello TCP World\0")
+#		data_size_received = len(data)
+#		print data
+#		data = ""
+		time.sleep(2)
+	s.close()
+
+
+
+
+
+
+
+
+
+
+
 
 
 def send_read():
@@ -89,11 +103,11 @@ def main():
 	snd_thread = Thread(target = send_read, args = (),)
 
 
-	#rcv_thread.start()
-	snd_thread.start()
+	rcv_thread.start()
+	#snd_thread.start()
 
-	#rcv_thread.join()
-	snd_thread.join()
+	rcv_thread.join()
+	#snd_thread.join()
 
 
 	"Program finished!"
