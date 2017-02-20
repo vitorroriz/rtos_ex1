@@ -1,9 +1,13 @@
 import socket
 import sys
 import time
+import struct
+import binascii
 from collections import namedtuple
 import threading
 
+#Defines the type of struct: TO BE CHANGED ACCORDING TO OUR APPLICATION
+struct_format = '4s I I I I'
 
 class networkUDP:
     'Class that defines a simple UDP server'
@@ -37,17 +41,16 @@ class networkUDP:
     def listen(self):
         sock = self.__makeserversocket()
 
-        while not self.shutdown:
-            try:
-                data, addr = sock.recvfrom(self.MAX_PKT_SIZE)
+        try:
+            data, addr = sock.recvfrom(self.MAX_PKT_SIZE)
 
-                print 'received %s bytes from %s' % (len(data), addr)
-                print data
+            print 'received %s bytes from %s' % (len(data), addr)
+            return data
 
-            except KeyboardInterrupt:
-                self.shutdown = True
+        except KeyboardInterrupt:
+            self.shutdown = True
+
         sock.close()
-        print '\nServer closed by Keyboard interruption'
 
     
     def sendto(self, addr , message = 'This is the client default message :D!'):
@@ -69,28 +72,49 @@ class networkUDP:
             dummysocket.connect(('8.8.8.8',80)) #connecting to google to find my IP
             return dummysocket.getsockname()[0]
 
+    def sendstructto(self, addr, my_struct):
+        packer = struct.Struct(struct_format)
+        packed_data = packer.pack(*my_struct)
+        self.sendto(addr, packed_data)
+
+    def getstruct(self,packed_struct):
+        unpacker = struct.Struct(struct_format)
+        return unpacker.unpack(packed_data)
+
+def packethandler(packed_data):
+    net = networkUDP(1)
+    data = net.getstruct(packed_data)
+    print data
+    print data[0]
+    print str(data[1])
+    print str(data[2])
+    print str(data[3])
+    print str(data[4])
 
 def serverhand():
-    net1 = networkUDP(20001) 
+    net1 = networkUDP(20000) 
     print 'My IP is: ' + net1.getmyip()
-    net1.listen()
+
+    while True:
+        packed_data = net1.listen()
+        t = threading.Thread(target = packethandler, args = packed_data)
+        t.start()
+        t.join()
+
+
 def clienthand():
     net2 = networkUDP(20000, serverhost = '192.168.1.37')
+    ms = ('vrrz',3,4,9,8)
+    c_addr = ('129.241.187.48',20000)
     while True:
         try:
-            message = raw_input('-> ')
-            #net1.sendto(('192.168.1.38'),30000)
-            net2.sendto(('192.168.1.37',20000), message)
+            net2.sendstructto(c_addr, ms)
         except KeyboardInterrupt:
             print 'Keyboard int'            
             sys.exit()
-
+        time.sleep(3)
 
 def main():
-    print 'Oi'
-    #print net1.getmyip()
-    #net1 = networkUDP(20000, serverhost = '192.168.1.37')
-
     ts = threading.Thread(target = serverhand)
     tc = threading.Thread(target = clienthand)
 
