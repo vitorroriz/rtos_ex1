@@ -20,7 +20,7 @@ class networkUDP:
             
         self.serveraddr = (self.serverhost, self.serverport)
         self.shutdown   =  False
-        self.MAX_PKT_SIZE = 512
+        self.MAX_PKT_SIZE = 20
 
     def __makeserversocket(self, addr = None ):
         #Creating socket (UDP)
@@ -92,7 +92,7 @@ def packethandler(packed_data):
     print str(data[4])
 
 def serverhand():
-    net1 = networkUDP(20000) 
+    net1 = networkUDP(20023) 
     print 'My IP is: ' + net1.getmyip()
 
     while True:
@@ -103,9 +103,9 @@ def serverhand():
 
 
 def clienthand():
-    net2 = networkUDP(20000, serverhost = '192.168.1.37')
+    net2 = networkUDP(20023, serverhost = '192.168.1.37')
     ms = ('vrrz',3,4,9,8)
-    c_addr = ('129.241.187.48',20000)
+    c_addr = ('129.241.187.43',20000)
     while True:
         try:
             net2.sendstructto(c_addr, ms)
