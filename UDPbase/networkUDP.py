@@ -17,13 +17,13 @@ class networkUDP:
     'Class that defines a simple UDP server'
 
     # -------- Handlers to received packets ----------------------------
-    def __handler_request(data_in):
+    def _handler_request(self,data_in):
         print "This is a request handler:"
         print "There was a request in floor: " + data_in["floor"]
         print "This was a request of type:   " + data_in["request_n"]
         print "The request had the msg       :"+ data_in["msg"]
 
-    def __handler_chat(data_in):
+    def _handler_chat(self,data_in):
         print "This is a chat handler"
         print data_in["msg"]
     #-----------end of handlers definition-------------------------------
@@ -41,7 +41,7 @@ class networkUDP:
         self.MAX_PKT_SIZE = 512
 
         #Dictionary to handlers functions (TO BE CHANGED BY OUR APP)
-        self.handler_dic = {"request" : handler_request, "chat" : handler_chat}
+        self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat}
     # -------- end of constructor ---------- ----------------------------
 
 
@@ -71,27 +71,31 @@ class networkUDP:
     def listen(self):
         sock = self.__makeserversocket()
 
-        try:
-            #Waiting for new data
-            data, addr = sock.recvfrom(self.MAX_PKT_SIZE)
-            data_out, data_in = self._unpack(data)
-            print 'received %s bytes from %s' % (len(data), addr)
-            m_type = data_out["m_type"]
-            print 'Message of type: ' + m_type
+        while True:
+            try:
+                #Waiting for new data
+                data, addr = sock.recvfrom(self.MAX_PKT_SIZE)
+
+                data_out, data_in = self._unpack(data)
+                print 'received %s bytes from %s' % (len(data), addr)
+                m_type = data_out["m_type"]
+                print 'Message of type: ' + m_type
+                print 'Data in:'
+                print data_in
 
 
-            #Creating threads to handle new income data according to its type
-            t = threading.Thread(target = self.handler_dic[m_type], args = (data_in,))
-            t.start()
+                #Creating threads to handle new income data according to its type
+                t = threading.Thread(target = self.handler_dic[m_type], args = (data_in,))
+                t.start()
 
-        except KeyboardInterrupt:
-            self.shutdown = True
+            except KeyboardInterrupt:
+                self.shutdown = True
 
         sock.close()
 
     def _pack(self, message_type, data_in):
         data_in_packed = pickle.dumps(data_in)
-        data_out = {"m_type" : m_type, "data" : data_in_packed }
+        data_out = {"m_type" : message_type, "data" : data_in_packed }
         data_out_packed = pickle.dumps(data_out)
         return data_out_packed
      
@@ -116,26 +120,38 @@ class networkUDP:
             return dummysocket.getsockname()[0]
 
 
-def packethandler(packed_data):
 
 def serverhand():
-    net1 = networkUDP(20023) 
+    net1 = networkUDP(27023) 
     print 'My IP is: ' + net1.getmyip()
 
-    while True:
+    
+    try:
         packed_data = net1.listen()
-        t = threading.Thread(target = packethandler, args = packed_data)
-        t.start()
-        t.join()
+    except KeyboardInterrupt:
+        print 'Keyboard int'
+        sys.exit()
+
 
 
 def clienthand():
-    net2 = networkUDP(20023, serverhost = '192.168.1.37')
-    ms = ('vrrz',3,4,9,8)
-    c_addr = ('129.241.187.43',20000)
+    net2 = networkUDP(27023, serverhost = '')
+    
+    i = 1
+
+    c_addr = ('129.241.187.155',27024)
     while True:
+
+        i = i+1
+        if(i%2):
+            ms = {"floor": "3", "request_n": "4", "msg":"this is my message"}
+            message_type = "request"
+        else:
+            ms = {"msg": "Hello dic World. This is a msg test"}
+            message_type = "chat"
+
         try:
-            net2.sendstructto(c_addr, ms)
+            net2.sendto(c_addr, message_type, ms)
         except KeyboardInterrupt:
             print 'Keyboard int'            
             sys.exit()
