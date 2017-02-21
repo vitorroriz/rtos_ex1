@@ -2,15 +2,33 @@ import socket
 import sys
 import time
 import struct
-import binascii
-from collections import namedtuple
 import threading
+import pickle
 
-#Defines the type of struct: TO BE CHANGED ACCORDING TO OUR APPLICATION
-struct_format = '4s I I I I'
+
+#The messages sent and received are dictionary types with two layers:
+#External layer:
+#data_out = {"m_type" : my_m_type, "data" : data_in}
+#Internal layer:
+#data_in = {to be defined by app}
+
 
 class networkUDP:
     'Class that defines a simple UDP server'
+
+    # -------- Handlers to received packets ----------------------------
+    def __handler_request(data_in):
+        print "This is a request handler:"
+        print "There was a request in floor: " + data_in["floor"]
+        print "This was a request of type:   " + data_in["request_n"]
+        print "The request had the msg       :"+ data_in["msg"]
+
+    def __handler_chat(data_in):
+        print "This is a chat handler"
+        print data_in["msg"]
+    #-----------end of handlers definition-------------------------------
+
+    # -------- Constructor for the class obj ----------------------------
     def __init__(self, serverport, serverhost = None):
         self.serverport = int(serverport)
         if serverhost:
@@ -20,7 +38,12 @@ class networkUDP:
             
         self.serveraddr = (self.serverhost, self.serverport)
         self.shutdown   =  False
-        self.MAX_PKT_SIZE = 20
+        self.MAX_PKT_SIZE = 512
+
+        #Dictionary to handlers functions (TO BE CHANGED BY OUR APP)
+        self.handler_dic = {"request" : handler_request, "chat" : handler_chat}
+    # -------- end of constructor ---------- ----------------------------
+
 
     def __makeserversocket(self, addr = None ):
         #Creating socket (UDP)
@@ -38,58 +61,62 @@ class networkUDP:
         sock.bind(addr_to_bind)
         return sock
 
+    def _unpack(self, data_out_packed):
+        #Deserializing new data into out and in data packs
+        data_out = pickle.loads(data_out_packed)
+        data_in_packed = data_out["data"]
+        data_in = pickle.loads(data_in_packed)
+        return data_out, data_in        
+
     def listen(self):
         sock = self.__makeserversocket()
 
         try:
+            #Waiting for new data
             data, addr = sock.recvfrom(self.MAX_PKT_SIZE)
-
+            data_out, data_in = self._unpack(data)
             print 'received %s bytes from %s' % (len(data), addr)
-            return data
+            m_type = data_out["m_type"]
+            print 'Message of type: ' + m_type
+
+
+            #Creating threads to handle new income data according to its type
+            t = threading.Thread(target = self.handler_dic[m_type], args = (data_in,))
+            t.start()
 
         except KeyboardInterrupt:
             self.shutdown = True
 
         sock.close()
 
-    
-    def sendto(self, addr , message = 'This is the client default message :D!'):
+    def _pack(self, message_type, data_in):
+        data_in_packed = pickle.dumps(data_in)
+        data_out = {"m_type" : m_type, "data" : data_in_packed }
+        data_out_packed = pickle.dumps(data_out)
+        return data_out_packed
+     
+    def sendto(self, addr , message_type, data_in):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1) #Let port be reused when socket is closed
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1) #enable broadcast
-                  
+        
+        data_out_packed = self._pack(message_type, data_in)
+
         try:
-            sent = sock.sendto(message, addr)
+            sent = sock.sendto(data_out_packed, addr)
         finally:
             sock.close()
 
     def broadcast(self, message):
-        self.sendto(('192.168.1.255',self.serverport), message)
-                    
+        self.sendto(('192.168.1.255',self.serverport), message)               
 
     def getmyip(self):
             dummysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             dummysocket.connect(('8.8.8.8',80)) #connecting to google to find my IP
             return dummysocket.getsockname()[0]
 
-    def sendstructto(self, addr, my_struct):
-        packer = struct.Struct(struct_format)
-        packed_data = packer.pack(*my_struct)
-        self.sendto(addr, packed_data)
-
-    def getstruct(self,packed_struct):
-        unpacker = struct.Struct(struct_format)
-        return unpacker.unpack(packed_data)
 
 def packethandler(packed_data):
-    net = networkUDP(1)
-    data = net.getstruct(packed_data)
-    print data
-    print data[0]
-    print str(data[1])
-    print str(data[2])
-    print str(data[3])
-    print str(data[4])
 
 def serverhand():
     net1 = networkUDP(20023) 
