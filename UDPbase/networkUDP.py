@@ -17,19 +17,20 @@ class networkUDP:
     'Class that defines a simple UDP server'
 
     # -------- Handlers to received packets ----------------------------
-    def _handler_request(self,data_in):
-        print "This is a request handler:"
-        print "There was a request in floor: " + data_in["floor"]
-        print "This was a request of type:   " + data_in["request_n"]
-        print "The request had the msg       :"+ data_in["msg"]
+    # def _handler_request(self,data_in):
+    #     print "This is a request handler:"
+    #     print "There was a request in floor: " + data_in["floor"]
+    #     print "This was a request of type:   " + data_in["request_n"]
+    #     print "The request had the msg       :"+ data_in["msg"]
 
-    def _handler_chat(self,data_in):
-        print "This is a chat handler"
-        print data_in["msg"]
+
+    # def _handler_chat(self,data_in):
+    #     print "This is a chat handler"
+    #     print data_in["msg"]
     #-----------end of handlers definition-------------------------------
 
     # -------- Constructor for the class obj ----------------------------
-    def __init__(self, serverport, serverhost = None):
+    def __init__(self, serverport, serverhost = None, handlers_list = None):
         self.serverport = int(serverport)
         if serverhost:
             self.serverhost = serverhost
@@ -40,8 +41,11 @@ class networkUDP:
         self.shutdown   =  False
         self.MAX_PKT_SIZE = 512
 
-        #Dictionary to handlers functions (TO BE CHANGED BY OUR APP)
-        self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat}
+        # if handlers_list == None:
+        #     #Dictionary to handlers functions (TO BE CHANGED BY OUR APP)
+        #     self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat}
+        # else:
+        self.handler_dic = handlers_list
     # -------- end of constructor ---------- ----------------------------
 
 
@@ -79,9 +83,9 @@ class networkUDP:
                 data_out, data_in = self._unpack(data)
                 print 'received %s bytes from %s' % (len(data), addr)
                 m_type = data_out["m_type"]
-                print 'Message of type: ' + m_type
-                print 'Data in:'
-                print data_in
+                # print 'Message of type: ' + m_type
+                # print 'Data in:'
+                # print data_in
 
 
                 #Creating threads to handle new income data according to its type
@@ -122,7 +126,7 @@ class networkUDP:
 
 
 def serverhand():
-    net1 = networkUDP(27023) 
+    net1 = networkUDP(27024) 
     print 'My IP is: ' + net1.getmyip()
 
     
@@ -135,11 +139,11 @@ def serverhand():
 
 
 def clienthand():
-    net2 = networkUDP(27023, serverhost = '')
+    net2 = networkUDP(27024, serverhost = '')
     
     i = 1
 
-    c_addr = ('129.241.187.155',27024)
+    c_addr = ('129.241.187.48',27023)
     while True:
 
         i = i+1
@@ -157,19 +161,17 @@ def clienthand():
             sys.exit()
         time.sleep(3)
 
-def main():
-    ts = threading.Thread(target = serverhand)
-    tc = threading.Thread(target = clienthand)
+# def main():
+#     ts = threading.Thread(target = serverhand)
+#     tc = threading.Thread(target = clienthand)
 
-    ts.start()
-    tc.start()
+#     ts.start()
+#     tc.start()
 
-#   ts.join()
-    while tc.isAlive():
-        tc.join(5.0)
+# #   ts.join()
+#     while tc.isAlive():
+#         tc.join(5.0)
 
 
 
-    
-if __name__ == '__main__':
-    main()
+
