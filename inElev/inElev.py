@@ -6,7 +6,7 @@ import threading
 import pickle
 from networkUDP import networkUDP
 from ctypes import cdll
-
+#Elevator class
 #-----------Definitions for the interface with the .C driver files-----
 N_FLOORS = 4
 
