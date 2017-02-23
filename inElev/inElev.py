@@ -65,7 +65,6 @@ class Elevator(object):
 		self.hierachy["slave1"] = self.hierachy["slave2"]
 		print ""
 
-	def _handler_order(self, data_in):
 		print "Handler order"
 
     #-----------end of handlers definition-------------------------------
@@ -81,7 +80,11 @@ class Elevator(object):
 		self.net_server = networkUDP(serverport, handlers_list = self.handler_dic)
 		#Creating a network object to send messages
 		self.net_client = networkUDP(serverport)
-
+		#Creating a driver object
+		self.driver = cdll.LoadLibrary('./libelev.so')
+		self.driver.elev_init()
+		
+		
 		self.myIP = self.net_server.getmyip()
 		if self.hierachy["master"] ==  self.myIP:
 			self.master_or_slaven = 1
@@ -95,16 +98,48 @@ class Elevator(object):
 
 		#COllection current external requests in the system for each floor
 		#0 - > no request | 1 - > go up | 2 - > go down | 3 - > go up and down 
-		self.ex_requests = {"F1" : 0, "F2" : 0, "F3" : 0 , "F4" : 0}
+		#self.ex_requests = {"F1" : 0, "F2" : 0, "F3" : 0 , "F4" : 0}
+		self.interface = {"uf1" : 0, "uf2" : 0, "uf3" : 0, "df2" : 0, "df3" : 0, "df4" : 0,
+						  "cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0}
+		
 		
 		#Creating driver object to interface with hardware
-		self.driver = cdll.LoadLibrary('./libelev.so')
-		self.driver.elev_init()
+		self.thread_interfaceM = threading.Thread(target = self.interfaceMonitor)
+		self.thread_interfaceU = threading.Thread(target = self.interfaceUpdate)
 
+		
+	def interfaceMonitor(self):
+		while True:
+			self.interface["uf1"] = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			self.interface["uf2"] = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
+			self.interface["uf3"] = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
+		
+			self.interface["df2"] = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
+			self.interface["df3"] = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
+			self.interface["df4"] = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
+		
+			self.interface["cf1"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
+			self.interface["cf2"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
+			self.interface["cf3"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
+			self.interface["cf4"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
+			self.interface["stop"]= self.driver.elev_get_stop_signal()
+					
+	def interfaceUpdate(self):
+		while True:
+			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 0, self.interface["uf1"]);
+			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 1, self.interface["uf2"]);
+			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 2, self.interface["uf3"]);
 
+			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 1, self.interface["df2"]);
+			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 2, self.interface["df3"]);
+			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 3, self.interface["df4"]);	
 
-
-
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 0, self.interface["cf1"]);
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 1, self.interface["cf2"]);
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.interface["cf3"]);	
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.interface["cf4"]);
+			self.driver.elev_set_stop_lamp(self.interface["stop"]);
+	
 	def goUP(self):
 		#import function from driver
 		print 'Elevator ' + str(self.elevatorID) + ' going UP'
@@ -135,15 +170,17 @@ def main():
 	print elevator1.net_server.getmyip()
 	print "Master = 1 Slave = 0 ---> master_or_slaven = " + str(elevator1.master_or_slaven)
 	
-	elevator1.driver.elev_set_motor_direction(DIRN_UP)
-	time.sleep(2)
-	elevator1.driver.elev_set_motor_direction(DIRN_STOP)
+	
+	elevator1.thread_interfaceM.start()
+	elevator1.thread_interfaceU.start()
+	
 	
 		
 	elevator1.net_server.listen()
 
 
-
+	elevator1.thread_interfaceM.join()
+	elevator1.thread_interfaceU.join()
 
 if __name__ == '__main__':
 	main()
