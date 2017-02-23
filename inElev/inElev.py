@@ -5,7 +5,22 @@ import struct
 import threading
 import pickle
 from networkUDP import networkUDP
+from ctypes import cdll
 
+#-----------Definitions for the interface with the .C driver files-----
+N_FLOORS = 4
+
+N_BUTTONS = 3
+
+DIRN_DOWN = -1
+DIRN_STOP = 0
+DIRN_UP = 1
+
+
+BUTTON_CALL_UP = 0
+BUTTON_CALL_DOWN = 1
+BUTTON_COMMAND = 2
+#--------------------------- end of definitions -----------------------
 
 class Elevator(object):
 	"""Class that represents the internals of the Elevator"""
@@ -37,7 +52,7 @@ class Elevator(object):
 		#setting up the reply message and sendint it
 		m_type = "dOa_r"
 		msg = {"alive"}
-		self.net_server.sendto(addr, m_type, msg)
+		self.net_client.sendto(addr, m_type, msg)
 		print ""
 
 	def _handler_deadOa_reply(self,data_in):
@@ -58,7 +73,7 @@ class Elevator(object):
 	def __init__(self, elevatorID, masterID, serverport = 20023):
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"master" : "129.241.187.48", "slave1" : "129.241.187.155", "slave2" : "129.241.187.45"}
+		self.hierachy = {"master" : "129.241.187.141", "slave1" : "129.241.187.155", "slave2" : "129.241.187.45"}
 		#Dictionary for registering the handlers for each kind of message received
 		self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat, 
 							"dOa_q" : self._handler_deadOa_question, "dOa_r" : self._handler_deadOa_reply}
@@ -81,8 +96,10 @@ class Elevator(object):
 		#COllection current external requests in the system for each floor
 		#0 - > no request | 1 - > go up | 2 - > go down | 3 - > go up and down 
 		self.ex_requests = {"F1" : 0, "F2" : 0, "F3" : 0 , "F4" : 0}
-
 		
+		#Creating driver object to interface with hardware
+		self.driver = cdll.LoadLibrary('./libelev.so')
+		self.driver.elev_init()
 
 
 
@@ -96,6 +113,8 @@ class Elevator(object):
 		print 'Elevator ' + str(self.elevatorID) + ' going UP'
 	def stop(self):
 		print 'Elevator ' + str(self.elevatorID) + ' stopped'
+		
+		
 	def _masterWatcher(self):
 		while True:
 			if not self.masterALive:
@@ -115,7 +134,12 @@ def main():
 	print "Hello, my ip is:"
 	print elevator1.net_server.getmyip()
 	print "Master = 1 Slave = 0 ---> master_or_slaven = " + str(elevator1.master_or_slaven)
-
+	
+	elevator1.driver.elev_set_motor_direction(DIRN_UP)
+	time.sleep(2)
+	elevator1.driver.elev_set_motor_direction(DIRN_STOP)
+	
+		
 	elevator1.net_server.listen()
 
 
