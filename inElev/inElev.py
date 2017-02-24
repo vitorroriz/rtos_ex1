@@ -98,7 +98,8 @@ class Elevator(object):
 
 		self.system_info = {}
 		for i in self.hierachy.keys():
-			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, "M/MW/S" : self.hierachy[i]}
+			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, 
+									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0}
 
 
 
@@ -120,7 +121,7 @@ class Elevator(object):
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev.so')
 		self.driver.elev_init()
-		
+
 		
 		self.myIP = self.net_server.getmyip()
 		self.master_or_slaven = self.system_info[self.myIP]["M/MW/S"]
@@ -133,9 +134,7 @@ class Elevator(object):
 
 		print self.system_info
 
-		#COllection current external requests in the system for each floor
-		#0 - > no request | 1 - > go up | 2 - > go down | 3 - > go up and down 
-		#self.ex_requests = {"F1" : 0, "F2" : 0, "F3" : 0 , "F4" : 0}
+		#Collection current external requests in the system for each floor
 		self.interface = {"uf1" : 0, "uf2" : 0, "uf3" : 0, "df2" : 0, "df3" : 0, "df4" : 0}
 		
 		
@@ -160,9 +159,9 @@ class Elevator(object):
 		while True:
 			m_type = "SU"
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
-			print self.system_info
+			#print self.system_info
 
-			time.sleep(1)
+			time.sleep(0.1)
 				
 
 	def interfaceMonitor(self):
@@ -196,7 +195,24 @@ class Elevator(object):
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.system_info[self.myIP]["cf3"])
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.system_info[self.myIP]["cf4"])
 			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
+
+	def positionMonitor(self):
+		while True:
+			floor = self.driver.elev_get_floor_sensor_signal()
+				if floor != -1:
+					self.system_info[self.myIP]["lastF"] = floor
+		time.sleep(0.1) #10 times per second
 	
+	def execute_order(self):
+		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
+		while True:
+			self.floorSensor = self.driver.elev_get_floor_sensor_signal()
+
+			if self.floorSensor != -1:
+				self.lastFloor = self.floorSensor
+				if self.system_info[self.myIP][translation[self.floorSensor]]: 
+					self.driver.elev_set_motor_direction(DIRN_STOP)
+
 	def goUP(self):
 		#import function from driver
 		print 'Elevator ' + str(self.elevatorID) + ' going UP'
@@ -205,6 +221,11 @@ class Elevator(object):
 		print 'Elevator ' + str(self.elevatorID) + ' going UP'
 	def stop(self):
 		print 'Elevator ' + str(self.elevatorID) + ' stopped'
+
+
+	def movement(self):
+
+		for 
 		
 		
 	def _masterWatcher(self):
