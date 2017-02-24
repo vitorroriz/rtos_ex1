@@ -46,7 +46,7 @@ class Elevator(object):
 		self.interface["df3"] |= data_in["df3"]
 		self.interface["df4"] |= data_in["df4"]	
 
-	def _handler_system_info_update(self, data_in, addr)
+	def _handler_system_info_update(self, data_in, addr):
 		self.system_info[addr[0]]["cf1"] = data_in["cf1"]
 		self.system_info[addr[0]]["cf2"] = data_in["cf2"]
 		self.system_info[addr[0]]["cf3"] = data_in["cf3"]
@@ -142,10 +142,10 @@ class Elevator(object):
 
 
 		#Creating driver object to interface with hardware
-		self.thread_interfaceM = threading.Thread(target = self.interfaceMonitor)
-		self.thread_interfaceU = threading.Thread(target = self.interfaceUpdate)
-		self.thread_interfaceB = threading.Thread(target = self._interfaceBroadcast)
-
+		self.thread_interfaceM  = threading.Thread(target = self.interfaceMonitor)
+		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
+		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
+		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
 
 
 	def _interfaceBroadcast(self):
@@ -231,6 +231,7 @@ def main():
 	elevator1.thread_interfaceM.start()
 	elevator1.thread_interfaceU.start()
 	elevator1.thread_interfaceB.start()
+	elevator1.thread_systeminfoB.start()
 	
 	
 #	while True:
@@ -246,6 +247,7 @@ def main():
 	elevator1.thread_interfaceM.join()
 	elevator1.thread_interfaceU.join()
 	elevator1.thread_interfaceB.join()
+	elevator1.thread_systeminfoB.join()
 
 if __name__ == '__main__':
 	main()
