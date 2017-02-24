@@ -35,6 +35,25 @@ class Elevator(object):
 
 		print ""
 
+	def _handler_interface_update(self,data_in):
+	print "INTERFACE UPDATE HANDLER FROM ELEVATOR"
+
+
+	self.interface["uf1"] |= data_in["uf1"]
+	self.interface["uf2"] |= data_in["uf2"]
+	self.interface["uf3"] |= data_in["uf3"]
+
+	self.interface["df2"] |= data_in["df2"]
+	self.interface["df3"] |= data_in["df3"]
+	self.interface["df4"] |= data_in["df4"]	
+
+	self.interface["cf1"] |= data_in["cf1"]
+	self.interface["cf2"] |= data_in["cf2"]
+	self.interface["cf3"] |= data_in["cf3"]
+	self.interface["cf4"] |= data_in["cf4"]
+	self.interface["stop"]|= data_in["stop"]
+
+	print ""
 
 
 	def _handler_chat(self,data_in):
@@ -77,7 +96,12 @@ class Elevator(object):
 		self.hierachy = {"master" : "129.241.187.141", "slave1" : "129.241.187.145"}
 		#Dictionary for registering the handlers for each kind of message received
 		self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat, 
-							"dOa_q" : self._handler_deadOa_question, "dOa_r" : self._handler_deadOa_reply}
+							"dOa_q" : self._handler_deadOa_question, 
+							"dOa_r" : self._handler_deadOa_reply,
+							"IU" : self._handler_interface_update}
+
+
+
 		#Creating a network object to receive messages
 		self.net_server = networkUDP(serverport, handlers_list = self.handler_dic)
 		#Creating a network object to broadcast
@@ -111,8 +135,16 @@ class Elevator(object):
 		#Creating driver object to interface with hardware
 		self.thread_interfaceM = threading.Thread(target = self.interfaceMonitor)
 		self.thread_interfaceU = threading.Thread(target = self.interfaceUpdate)
+		self.thread_interfaceB = threading.Thread(target = self._interfaceBroadcast)
 
-		
+
+
+	def _interfaceBroadcast(self):
+		m_type =  "IU"
+		self.broadcast(m_type, self.interface)
+		time.sleep(1)
+	
+
 	def interfaceMonitor(self):
 		while True:
 			self.interface["uf1"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
@@ -178,15 +210,23 @@ def main():
 	
 	elevator1.thread_interfaceM.start()
 	elevator1.thread_interfaceU.start()
+	elevatir1.thread_interfaceB.start()
 	
 	
-		
+	while True:
+		m_type = "request"
+		ms = {"floor": "3", "request_n": "4", "msg":"this is my message"}
+		elevator1.net_client.broadcast(m_type, ms)
+		time.sleep(2)
+
+
 	elevator1.net_bdcast.listen()
 
 
 	elevator1.thread_interfaceM.join()
 	elevator1.thread_interfaceU.join()
-
+	elevator1.thread_interfaceB.join()
+	
 if __name__ == '__main__':
 	main()
 
