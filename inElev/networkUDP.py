@@ -32,10 +32,12 @@ class networkUDP:
     # -------- Constructor for the class obj ----------------------------
     def __init__(self, serverport, serverhost = None, handlers_list = None):
         self.serverport = int(serverport)
+        self.myIP = self.getmyip()
+
         if serverhost:
             self.serverhost = serverhost
         else:
-            self.serverhost = self.getmyip()
+            self.serverhost = self.myIP
             
         self.serveraddr = (self.serverhost, self.serverport)
         self.shutdown   =  False
@@ -80,13 +82,14 @@ class networkUDP:
                 #Waiting for new data
                 data, addr = sock.recvfrom(self.MAX_PKT_SIZE)
 
-                data_out, data_in = self._unpack(data)
-                print 'received %s bytes from %s' % (len(data), addr)
-                m_type = data_out["m_type"]
+                if addr[0] != self.myIP:
+                    data_out, data_in = self._unpack(data)
+                    print 'received %s bytes from %s' % (len(data), addr)
+                    m_type = data_out["m_type"]
 
-                #Creating threads to handle new income data according to its type
-                t = threading.Thread(target = self.handler_dic[m_type], args = (data_in,))
-                t.start()
+                    #Creating threads to handle new income data according to its type
+                    t = threading.Thread(target = self.handler_dic[m_type], args = (data_in, addr))
+                    t.start()
 
             except KeyboardInterrupt:
                 self.shutdown = True
