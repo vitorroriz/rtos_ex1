@@ -70,14 +70,19 @@ class Elevator(object):
     #-----------end of handlers definition-------------------------------
 
 	def __init__(self, elevatorID, masterID, serverport = 20023):
+		
+		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"master" : "129.241.187.141", "slave1" : "129.241.187.155", "slave2" : "129.241.187.45"}
+		self.hierachy = {"master" : "129.241.187.141", "slave1" : "129.241.187.145"}
 		#Dictionary for registering the handlers for each kind of message received
 		self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat, 
 							"dOa_q" : self._handler_deadOa_question, "dOa_r" : self._handler_deadOa_reply}
 		#Creating a network object to receive messages
 		self.net_server = networkUDP(serverport, handlers_list = self.handler_dic)
+		#Creating a network object to broadcast
+		self.net_bdcast = networkUDP(serverport, serverhost = self.broadcastaddr, handlers_list = self.handler_dic)
+
 		#Creating a network object to send messages
 		self.net_client = networkUDP(serverport)
 		#Creating a driver object
@@ -110,19 +115,19 @@ class Elevator(object):
 		
 	def interfaceMonitor(self):
 		while True:
-			self.interface["uf1"] = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			self.interface["uf2"] = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
-			self.interface["uf3"] = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
+			self.interface["uf1"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			self.interface["uf2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
+			self.interface["uf3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
 		
-			self.interface["df2"] = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
-			self.interface["df3"] = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
-			self.interface["df4"] = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
+			self.interface["df2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
+			self.interface["df3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
+			self.interface["df4"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
 		
-			self.interface["cf1"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
-			self.interface["cf2"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
-			self.interface["cf3"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
-			self.interface["cf4"] = self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
-			self.interface["stop"]= self.driver.elev_get_stop_signal()
+			self.interface["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
+			self.interface["cf2"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
+			self.interface["cf3"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
+			self.interface["cf4"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
+			self.interface["stop"]|= self.driver.elev_get_stop_signal()
 					
 	def interfaceUpdate(self):
 		while True:
@@ -176,7 +181,7 @@ def main():
 	
 	
 		
-	elevator1.net_server.listen()
+	elevator1.net_bdcast.listen()
 
 
 	elevator1.thread_interfaceM.join()
