@@ -32,7 +32,6 @@ class Elevator(object):
 		request_n = data_in["request_n"]
 
 
-
 		print ""
 
 	def _handler_interface_update(self,data_in, addr):
@@ -47,6 +46,7 @@ class Elevator(object):
 		self.interface["df3"] |= data_in["df3"]
 		self.interface["df4"] |= data_in["df4"]	
 
+	def _handler_system_info_update(self, data_in, addr)
 		self.system_info[addr[0]]["cf1"] = data_in["cf1"]
 		self.system_info[addr[0]]["cf2"] = data_in["cf2"]
 		self.system_info[addr[0]]["cf3"] = data_in["cf3"]
@@ -54,7 +54,7 @@ class Elevator(object):
 		self.system_info[addr[0]]["stop"] = data_in["stop"]
 
 
-	def _handler_chat(self,data_in, addr):
+	def _handler_chat(self, data_in, addr):
 		print "CHAT HANDLER FROM ELEVATOR"
 		print "Contents of received packet:"
 		print data_in["msg"]
@@ -91,7 +91,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.141" : 0, "129.241.187.145" : 1}
+		self.hierachy = {"129.241.187.145" : 0, "129.241.187.157" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -107,7 +107,8 @@ class Elevator(object):
 		self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat, 
 							"dOa_q" : self._handler_deadOa_question, 
 							"dOa_r" : self._handler_deadOa_reply,
-							"IU" : self._handler_interface_update}
+							"IU" : self._handler_interface_update,
+							"SU" : self._handler_system_info_update}
 
 		#Creating a network object to receive messages
 		self.net_server = networkUDP(serverport, handlers_list = self.handler_dic)
@@ -151,10 +152,18 @@ class Elevator(object):
 		while True:
 			m_type =  "IU"
 			self.net_client.broadcast(m_type, self.interface)
+			
+
+			time.sleep(1)
+
+	def _systeminfoBroadcast(self):
+		while True:
+			m_type = "SU"
+			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 			print self.system_info
 
 			time.sleep(1)
-		
+				
 
 	def interfaceMonitor(self):
 		while True:
@@ -166,11 +175,11 @@ class Elevator(object):
 			self.interface["df3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
 			self.interface["df4"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
 		
-			self.interface["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
-			self.interface["cf2"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
-			self.interface["cf3"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
-			self.interface["cf4"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
-			self.interface["stop"]|= self.driver.elev_get_stop_signal()
+			self.system_info[self.myIP]["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
+			self.system_info[self.myIP]["cf2"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
+			self.system_info[self.myIP]["cf3"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
+			self.system_info[self.myIP]["cf4"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
+			self.system_info[self.myIP]["stop"]|= self.driver.elev_get_stop_signal()
 					
 	def interfaceUpdate(self):
 		while True:
@@ -186,7 +195,7 @@ class Elevator(object):
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 1, self.system_info[self.myIP]["cf2"])
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.system_info[self.myIP]["cf3"])
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.system_info[self.myIP]["cf4"])
-			self.driver.elev_set_stop_lamp(self.interface["stop"])
+			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
 	
 	def goUP(self):
 		#import function from driver
