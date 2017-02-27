@@ -95,7 +95,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.48" : 0, "129.241.187.157" : 1}
+		self.hierachy = {"129.241.187.153" : 0, "129.241.187.157" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -203,16 +203,12 @@ class Elevator(object):
 
 	def positionMonitor(self):
 		while True:
-			print self.driver.elev_get_floor_sensor_signal()
-			time.sleep(0.5)
-
-		while True:
 			floor = self.driver.elev_get_floor_sensor_signal()
 			if floor != -1:
 				self.system_info[self.myIP]["lastF"] = floor
 
-			print "F: " + str(floor)
-			time.sleep(1) #10 times per second
+#			print "F: " + str(floor)
+			time.sleep(0.05) #10 times per second
 
 	
 	def execute_order(self):
@@ -283,7 +279,7 @@ def main():
 	elevator1.thread_systeminfoB.start()
 	elevator1.thread_positionM.start()
 	
-	#elevator1.go_to_destin(2)
+
 #	while True:
 #		m_type = "request"
 #		ms = {"floor": "3", "request_n": "4", "msg":"this is my message"}
