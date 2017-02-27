@@ -52,6 +52,10 @@ class Elevator(object):
 		self.system_info[addr[0]]["cf3"] = data_in["cf3"]
 		self.system_info[addr[0]]["cf4"] = data_in["cf4"]
 		self.system_info[addr[0]]["stop"] = data_in["stop"]
+		self.system_info[addr[0]]["M/MW/S"] = data_in["M/MW/S"]
+		self.system_info[addr[0]]["lastF"] = data_in["lastF"]
+		self.system_info[addr[0]]["lastDir"] = data_in["lastDir"]
+		self.system_info[addr[0]]["busy"] = data_in["busy"]
 
 
 	def _handler_chat(self, data_in, addr):
@@ -91,7 +95,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.145" : 0, "129.241.187.157" : 1}
+		self.hierachy = {"129.241.187.48" : 0, "129.241.187.157" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -99,7 +103,7 @@ class Elevator(object):
 		self.system_info = {}
 		for i in self.hierachy.keys():
 			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, 
-									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0}
+									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0}
 
 
 
@@ -145,6 +149,7 @@ class Elevator(object):
 		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
 		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
+		self.thread_positionM 	= threading.Thread(target = self.positionMonitor)
 
 
 	def _interfaceBroadcast(self):
@@ -198,10 +203,17 @@ class Elevator(object):
 
 	def positionMonitor(self):
 		while True:
+			print self.driver.elev_get_floor_sensor_signal()
+			time.sleep(0.5)
+
+		while True:
 			floor = self.driver.elev_get_floor_sensor_signal()
-				if floor != -1:
-					self.system_info[self.myIP]["lastF"] = floor
-		time.sleep(0.1) #10 times per second
+			if floor != -1:
+				self.system_info[self.myIP]["lastF"] = floor
+
+			print "F: " + str(floor)
+			time.sleep(1) #10 times per second
+
 	
 	def execute_order(self):
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
@@ -213,6 +225,26 @@ class Elevator(object):
 				if self.system_info[self.myIP][translation[self.floorSensor]]: 
 					self.driver.elev_set_motor_direction(DIRN_STOP)
 
+	def go_to_destin(self, destination):
+
+		print "GOING TO DESTINATION " + str(destination)
+		current = self.system_info[self.myIP]["lastF"]
+		distance = destination - current
+		if (distance > 0):
+			direction = 1
+		elif(distance < 0):
+			direction = -1
+		else:
+			return
+
+		while(self.system_info[self.myIP]["lastF"] != destination):
+			self.driver.elev_set_motor_direction(direction)
+			self.system_info[self.myIP]["lastDir"] = direction
+			print self.system_info[self.myIP]["lastF"]
+
+		print "I AM DONE"
+		self.driver.elev_set_motor_direction(0)
+
 	def goUP(self):
 		#import function from driver
 		print 'Elevator ' + str(self.elevatorID) + ' going UP'
@@ -223,10 +255,6 @@ class Elevator(object):
 		print 'Elevator ' + str(self.elevatorID) + ' stopped'
 
 
-	def movement(self):
-
-		for 
-		
 		
 	def _masterWatcher(self):
 		while True:
@@ -253,8 +281,9 @@ def main():
 	elevator1.thread_interfaceU.start()
 	elevator1.thread_interfaceB.start()
 	elevator1.thread_systeminfoB.start()
+	elevator1.thread_positionM.start()
 	
-	
+	#elevator1.go_to_destin(2)
 #	while True:
 #		m_type = "request"
 #		ms = {"floor": "3", "request_n": "4", "msg":"this is my message"}
@@ -269,6 +298,7 @@ def main():
 	elevator1.thread_interfaceU.join()
 	elevator1.thread_interfaceB.join()
 	elevator1.thread_systeminfoB.join()
+	elevator1.thread_positionM.join()
 
 if __name__ == '__main__':
 	main()

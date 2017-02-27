@@ -5,6 +5,25 @@ class Brain(object):
 		self.externals = externals
 
 
+	def internal_next_destin(self):
+		cf1 = self.system_info_v["cf1"]
+		cf2 = self.system_info_v["cf2"] 
+		cf3 = self.system_info_v["cf3"] 
+		cf4 = self.system_info_v["cf4"] 
+		internal_requests = {"cf1" : cf1 , "cf2" : cf2, "cf3" : cf3, "cf4" : cf4}
+		i_dic_int = {"cf1" : 0, "cf2" : 1 , "cf3" : 2 , "cf4" : 3}
+		distances = {}
+		for i in internal_requests.keys():
+			if internal_requests[i] != 0:
+				distance_raw = (i_dic_int[i] - system_info_v["lastF"])*system_info_v["lastDir"]
+				if (distance_raw > 0):
+					distances[i] = distance_raw
+		destination = min(distances, key=distances.get)
+		return
+
+
+
+
 	def _internal_dir(self,current_floor, internal_request):
 		if (internal_request - current_floor) < 0: return -1
 		else: return 1 
