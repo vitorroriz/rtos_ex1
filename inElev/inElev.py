@@ -4,8 +4,12 @@ import time
 import struct
 import threading
 import pickle
-from networkUDP import networkUDP
+
 from ctypes import cdll
+
+#Importing project modules
+from networkUDP import networkUDP
+from Brain import  Brain
 #Elevator class
 #-----------Definitions for the interface with the .C driver files-----
 N_FLOORS = 4
@@ -125,7 +129,6 @@ class Elevator(object):
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev.so')
 		self.driver.elev_init()
-
 		
 		self.myIP = self.net_server.getmyip()
 		self.master_or_slaven = self.system_info[self.myIP]["M/MW/S"]
@@ -141,6 +144,9 @@ class Elevator(object):
 		#Collection current external requests in the system for each floor
 		self.interface = {"uf1" : 0, "uf2" : 0, "uf3" : 0, "df2" : 0, "df3" : 0, "df4" : 0}
 		
+
+		#Creating a Brain object
+		self.brain = Brain(self.system_info[self.myIP], self.interface)
 		
 
 
@@ -150,6 +156,7 @@ class Elevator(object):
 		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
 		self.thread_positionM 	= threading.Thread(target = self.positionMonitor)
+		self.thread_internalE   = threading.Thread(target = self.internal_exe)
 
 
 	def _interfaceBroadcast(self):
@@ -222,8 +229,8 @@ class Elevator(object):
 					self.driver.elev_set_motor_direction(DIRN_STOP)
 
 	def go_to_destin(self, destination):
-
-		print "GOING TO DESTINATION " + str(destination)
+		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
+#		print "GOING TO DESTINATION " + str(destination)
 		current = self.system_info[self.myIP]["lastF"]
 		distance = destination - current
 		if (distance > 0):
@@ -236,10 +243,13 @@ class Elevator(object):
 		while(self.system_info[self.myIP]["lastF"] != destination):
 			self.driver.elev_set_motor_direction(direction)
 			self.system_info[self.myIP]["lastDir"] = direction
-			print self.system_info[self.myIP]["lastF"]
 
-		print "I AM DONE"
 		self.driver.elev_set_motor_direction(0)
+		self.system_info[self.myIP][translation[destination]] = 0
+
+	def internal_exe(self):
+		while True:
+			self.go_to_destin(self.brain.internal_next_destin())
 
 	def goUP(self):
 		#import function from driver
@@ -249,6 +259,7 @@ class Elevator(object):
 		print 'Elevator ' + str(self.elevatorID) + ' going UP'
 	def stop(self):
 		print 'Elevator ' + str(self.elevatorID) + ' stopped'
+
 
 
 		
@@ -278,6 +289,7 @@ def main():
 	elevator1.thread_interfaceB.start()
 	elevator1.thread_systeminfoB.start()
 	elevator1.thread_positionM.start()
+	elevator1.thread_internalE.start()
 	
 
 #	while True:
@@ -295,6 +307,7 @@ def main():
 	elevator1.thread_interfaceB.join()
 	elevator1.thread_systeminfoB.join()
 	elevator1.thread_positionM.join()
+	elevator1.thread_internalE.join()
 
 if __name__ == '__main__':
 	main()
