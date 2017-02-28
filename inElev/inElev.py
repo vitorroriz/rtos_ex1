@@ -4,7 +4,7 @@ import time
 import struct
 import threading
 import pickle
-
+import mutex
 from ctypes import cdll
 
 #Importing project modules
@@ -109,7 +109,7 @@ class Elevator(object):
 			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, 
 									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0}
 
-
+		self.system_info_resource = threading.Lock()
 
 
 		#Dictionary for registering the handlers for each kind of message received
@@ -139,7 +139,7 @@ class Elevator(object):
 		#Tolerance in seconds to receive a question from master
 		self.masterWatcher_tolerance = 4
 
-		print self.system_info
+		
 
 		#Collection current external requests in the system for each floor
 		self.interface = {"uf1" : 0, "uf2" : 0, "uf3" : 0, "df2" : 0, "df3" : 0, "df4" : 0}
@@ -186,12 +186,14 @@ class Elevator(object):
 			self.interface["df3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
 			self.interface["df4"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
 		
+			self.system_info_resource.acquire()
 			self.system_info[self.myIP]["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
 			self.system_info[self.myIP]["cf2"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
 			self.system_info[self.myIP]["cf3"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
 			self.system_info[self.myIP]["cf4"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
 			self.system_info[self.myIP]["stop"]|= self.driver.elev_get_stop_signal()
-					
+			self.system_info_resource.release()		
+
 	def interfaceUpdate(self):
 		while True:
 			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 0, self.interface["uf1"])
@@ -202,20 +204,23 @@ class Elevator(object):
 			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 2, self.interface["df3"])
 			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 3, self.interface["df4"])	
 
+			self.system_info_resource.acquire()
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 0, self.system_info[self.myIP]["cf1"])
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 1, self.system_info[self.myIP]["cf2"])
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.system_info[self.myIP]["cf3"])
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.system_info[self.myIP]["cf4"])
 			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
+			self.system_info_resource.release()
 
 	def positionMonitor(self):
 		while True:
 			floor = self.driver.elev_get_floor_sensor_signal()
 			if floor != -1:
+				self.system_info_resource.acquire()
 				self.system_info[self.myIP]["lastF"] = floor
-
+				self.system_info_resource.release()
 #			print "F: " + str(floor)
-			time.sleep(0.05) #10 times per second
+			time.sleep(0.01) #10 times per second
 
 	
 	def execute_order(self):
@@ -225,12 +230,15 @@ class Elevator(object):
 
 			if self.floorSensor != -1:
 				self.lastFloor = self.floorSensor
+				self.system_info_resource.acquire()
 				if self.system_info[self.myIP][translation[self.floorSensor]]: 
 					self.driver.elev_set_motor_direction(DIRN_STOP)
+				self.system_info_resource.release()
 
-	def go_to_destin(self, destination):
+	def go_to_destin(self, destination_o):
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
 #		print "GOING TO DESTINATION " + str(destination)
+		destination = destination_o
 		current = self.system_info[self.myIP]["lastF"]
 		distance = destination - current
 		if (distance > 0):
@@ -241,15 +249,24 @@ class Elevator(object):
 			return
 
 		while(self.system_info[self.myIP]["lastF"] != destination):
+			destination = self.brain.internal_next_destin()
 			self.driver.elev_set_motor_direction(direction)
+			self.system_info_resource.acquire()
 			self.system_info[self.myIP]["lastDir"] = direction
+			self.system_info_resource.release()
 
 		self.driver.elev_set_motor_direction(0)
+		self.system_info_resource.acquire()
 		self.system_info[self.myIP][translation[destination]] = 0
+		self.system_info_resource.release()
+
 
 	def internal_exe(self):
 		while True:
-			self.go_to_destin(self.brain.internal_next_destin())
+			destin = self.brain.internal_next_destin()
+			self.go_to_destin(destin)
+#			print "Destin: " + str(destin)
+			time.sleep(1)
 
 	def goUP(self):
 		#import function from driver

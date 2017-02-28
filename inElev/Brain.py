@@ -15,12 +15,16 @@ class Brain(object):
 		distances = {}
 		for i in internal_requests.keys():
 			if internal_requests[i] != 0:
-				distance_raw = (i_dic_int[i] - self.system_info_v["lastF"])*self.system_info_v["lastDir"]
+				if(self.system_info_v["lastDir"] == 0):
+					distance_raw = abs(i_dic_int[i] - self.system_info_v["lastF"])
+				else:
+					distance_raw = (i_dic_int[i] - self.system_info_v["lastF"])*self.system_info_v["lastDir"]
 				if (distance_raw > 0):
 					distances[i] = distance_raw
 		try:
 			destination = min(distances, key=distances.get)
 		except:
+			self.system_info_v["lastDir"] = 0
 			return self.system_info_v["lastF"]
 		return i_dic_int[destination]
 
