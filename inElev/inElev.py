@@ -99,7 +99,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.153" : 0, "129.241.187.157" : 1}
+		self.hierachy = {"129.241.187.148" : 0, "129.241.187.157" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -110,7 +110,7 @@ class Elevator(object):
 									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0}
 
 		self.system_info_resource = threading.Lock()
-
+		self.interface_resource = threading.Lock()
 
 		#Dictionary for registering the handlers for each kind of message received
 		self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat, 
@@ -133,12 +133,10 @@ class Elevator(object):
 		self.myIP = self.net_server.getmyip()
 		self.master_or_slaven = self.system_info[self.myIP]["M/MW/S"]
 
-
 		#Flag for slave1 monitor if the master is alive
 		self.masterALive = 1
 		#Tolerance in seconds to receive a question from master
 		self.masterWatcher_tolerance = 4
-
 		
 
 		#Collection current external requests in the system for each floor
@@ -146,10 +144,8 @@ class Elevator(object):
 		
 
 		#Creating a Brain object
-		self.brain = Brain(self.system_info[self.myIP], self.interface)
+		self.brain = Brain(self.system_info, self.interface, self.myIP)
 		
-
-
 		#Creating driver object to interface with hardware
 		self.thread_interfaceM  = threading.Thread(target = self.interfaceMonitor)
 		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
@@ -158,6 +154,8 @@ class Elevator(object):
 		self.thread_positionM 	= threading.Thread(target = self.positionMonitor)
 		self.thread_internalE   = threading.Thread(target = self.internal_exe)
 
+		#Sending the lift to a known position (default = 0)
+		self._system_init()
 
 	def _interfaceBroadcast(self):
 		while True:
@@ -171,13 +169,15 @@ class Elevator(object):
 		while True:
 			m_type = "SU"
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
-			#print self.system_info
+#			print self.system_info[self.myIP]["busy"]
 
 			time.sleep(0.1)
 				
 
 	def interfaceMonitor(self):
 		while True:
+
+			self.interface_resource.acquire()
 			self.interface["uf1"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
 			self.interface["uf2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
 			self.interface["uf3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
@@ -185,7 +185,8 @@ class Elevator(object):
 			self.interface["df2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
 			self.interface["df3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
 			self.interface["df4"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
-		
+			self.interface_resource.release()
+
 			self.system_info_resource.acquire()
 			self.system_info[self.myIP]["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
 			self.system_info[self.myIP]["cf2"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
@@ -196,6 +197,8 @@ class Elevator(object):
 
 	def interfaceUpdate(self):
 		while True:
+
+			self.interface_resource.acquire()
 			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 0, self.interface["uf1"])
 			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 1, self.interface["uf2"])
 			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 2, self.interface["uf3"])
@@ -203,6 +206,7 @@ class Elevator(object):
 			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 1, self.interface["df2"])
 			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 2, self.interface["df3"])
 			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 3, self.interface["df4"])	
+			self.interface_resource.release()	
 
 			self.system_info_resource.acquire()
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 0, self.system_info[self.myIP]["cf1"])
@@ -210,6 +214,7 @@ class Elevator(object):
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.system_info[self.myIP]["cf3"])
 			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.system_info[self.myIP]["cf4"])
 			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
+			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
 			self.system_info_resource.release()
 
 	def positionMonitor(self):
@@ -237,6 +242,10 @@ class Elevator(object):
 
 	def go_to_destin(self, destination_o):
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
+		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
+		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
+
+
 #		print "GOING TO DESTINATION " + str(destination)
 		destination = destination_o
 		current = self.system_info[self.myIP]["lastF"]
@@ -256,9 +265,27 @@ class Elevator(object):
 			self.system_info_resource.release()
 
 		self.driver.elev_set_motor_direction(0)
+
 		self.system_info_resource.acquire()
 		self.system_info[self.myIP][translation[destination]] = 0
+		self.interface_resource.acquire()
+		if((direction == 1)):
+			if(destination == 3):
+				self.interface[translation_d[destination]] = 0
+			else:
+				self.interface[translation_u[destination]] = 0 
+		else:
+			if(destination == 0):
+				self.interface[translation_u[destination]] = 0
+			else:
+				self.interface[translation_d[destination]] = 0 
+		self.interface_resource.release()
 		self.system_info_resource.release()
+
+#		Open the door for 3 seconds to the passagers to enter
+		self.driver.elev_set_door_open_lamp(1)
+		time.sleep(3)
+		self.driver.elev_set_door_open_lamp(0)
 
 
 	def internal_exe(self):
@@ -268,18 +295,13 @@ class Elevator(object):
 #			print "Destin: " + str(destin)
 			time.sleep(1)
 
-	def goUP(self):
-		#import function from driver
-		print 'Elevator ' + str(self.elevatorID) + ' going UP'
-	def goDown(self):
-		#import function from driver
-		print 'Elevator ' + str(self.elevatorID) + ' going UP'
-	def stop(self):
-		print 'Elevator ' + str(self.elevatorID) + ' stopped'
+	def _system_init(self):
+		floor = -1
+		while floor != 0:
+			self.driver.elev_set_motor_direction(-1)
+			floor = self.driver.elev_get_floor_sensor_signal()
+		self.driver.elev_set_motor_direction(0)
 
-
-
-		
 	def _masterWatcher(self):
 		while True:
 			if not self.masterALive:

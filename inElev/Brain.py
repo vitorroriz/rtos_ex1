@@ -1,7 +1,7 @@
 class Brain(object):
 	"""docstring for Brain"""
-	def __init__(self, system_info_v, externals):
-		self.system_info_v = system_info_v
+	def __init__(self, system_info, externals, myIP):
+		self.system_info_v = system_info[myIP]
 		self.externals = externals
 
 
@@ -23,12 +23,16 @@ class Brain(object):
 					distances[i] = distance_raw
 		try:
 			destination = min(distances, key=distances.get)
+			self.system_info_v["busy"] = 1
 		except:
 			self.system_info_v["lastDir"] = 0
+			self.system_info_v["busy"] = 0
 			return self.system_info_v["lastF"]
 		return i_dic_int[destination]
 
 
+
+#	def external_next_destin(self):
 
 
 	# def _internal_dir(self,current_floor, internal_request):
