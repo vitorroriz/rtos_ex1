@@ -114,7 +114,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.152" : 0, "129.241.187.142" : 1}
+		self.hierachy = {"129.241.187.152" : 0, "129.241.187.148" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -177,9 +177,9 @@ class Elevator(object):
 		while True:
 			m_type =  "IU"
 			self.net_client.broadcast(m_type, self.interface)
-			print self.interface			
+						
 
-			time.sleep(0.01)
+			time.sleep(0.1)
 
 	def _systeminfoBroadcast(self):
 		while True:
@@ -187,7 +187,7 @@ class Elevator(object):
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 #			print self.system_info[self.myIP]["busy"]
 
-			time.sleep(0.01)
+			time.sleep(0.1)
 				
 
 	def interfaceMonitor(self):
@@ -209,7 +209,8 @@ class Elevator(object):
 			self.system_info[self.myIP]["cf3"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
 			self.system_info[self.myIP]["cf4"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
 			self.system_info[self.myIP]["stop"]|= self.driver.elev_get_stop_signal()
-			self.system_info_resource.release()		
+			self.system_info_resource.release()	
+			time.sleep(0.1)	
 
 	def interfaceUpdate(self):
 		while True:
@@ -232,6 +233,7 @@ class Elevator(object):
 			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
 			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
 			self.system_info_resource.release()
+			time.sleep(0.1)
 
 	def positionMonitor(self):
 		while True:
@@ -297,7 +299,7 @@ class Elevator(object):
 				self.interface[translation_u[destination]] = 0
 			else:
 				self.interface[translation_d[destination]] = 0 
-		self.net_client.broadcast("ERD"," ")
+		self.net_client.broadcast("ERD",self.interface)
 		self.interface_resource.release()
 		self.system_info_resource.release()
 	
@@ -313,6 +315,7 @@ class Elevator(object):
 			self.go_to_destin(destin)
 #			print "Destin: " + str(destin)
 			time.sleep(1)
+			print self.interface
 
 	def _system_init(self):
 		floor = -1
@@ -336,7 +339,7 @@ class Elevator(object):
 
 
 def main():
-	elevator1 = Elevator(serverport = 27023)
+	elevator1 = Elevator(serverport = 51012)
 	print "Hello, my ip is:"
 	print elevator1.net_server.getmyip()
 	print "Master = 1 Slave = 0 ---> master_or_slaven = " + str(elevator1.master_or_slaven)
