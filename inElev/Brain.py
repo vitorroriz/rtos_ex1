@@ -32,7 +32,7 @@ class Brain(object):
 
 
 
-	def external_next_destin(self):
+#p	def external_next_destin(self):
 		
 
 

@@ -62,7 +62,7 @@ class Elevator(object):
 		self.system_info[addr[0]]["lastF"] = data_in["lastF"]
 		self.system_info[addr[0]]["lastDir"] = data_in["lastDir"]
 		self.system_info[addr[0]]["busy"] = data_in["busy"]
-		self.system_info_release.release()
+		self.system_info_resource.release()
 		
 		
 	def _handler_external_request_done(self, data_in, addr):
@@ -114,7 +114,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.152" : 0, "129.241.187.157" : 1}
+		self.hierachy = {"129.241.187.152" : 0, "129.241.187.142" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -132,7 +132,7 @@ class Elevator(object):
 							"dOa_q" : self._handler_deadOa_question, 
 							"dOa_r" : self._handler_deadOa_reply,
 							"IU" : self._handler_interface_update,
-							"SU" : self._handler_system_info_update
+							"SU" : self._handler_system_info_update,
 							"ERD" : self._handler_external_request_done}
 
 		#Creating a network object to receive messages
@@ -179,7 +179,7 @@ class Elevator(object):
 			self.net_client.broadcast(m_type, self.interface)
 			print self.interface			
 
-			time.sleep(1)
+			time.sleep(0.01)
 
 	def _systeminfoBroadcast(self):
 		while True:
@@ -187,7 +187,7 @@ class Elevator(object):
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 #			print self.system_info[self.myIP]["busy"]
 
-			time.sleep(0.1)
+			time.sleep(0.01)
 				
 
 	def interfaceMonitor(self):

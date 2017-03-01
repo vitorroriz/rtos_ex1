@@ -84,7 +84,7 @@ class networkUDP:
 
                 if addr[0] != self.myIP:
                     data_out, data_in = self._unpack(data)
-                    print 'received %s bytes from %s' % (len(data), addr)
+#                    print 'received %s bytes from %s' % (len(data), addr)
                     m_type = data_out["m_type"]
 
                     #Creating threads to handle new income data according to its type
