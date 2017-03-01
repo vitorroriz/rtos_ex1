@@ -41,7 +41,7 @@ class Elevator(object):
 	def _handler_interface_update(self,data_in, addr):
 		print "INTERFACE UPDATE HANDLER FROM ELEVATOR"
 
-
+		self.interface_resource.acquire()
 		self.interface["uf1"] |= data_in["uf1"]
 		self.interface["uf2"] |= data_in["uf2"]
 		self.interface["uf3"] |= data_in["uf3"]
@@ -49,8 +49,10 @@ class Elevator(object):
 		self.interface["df2"] |= data_in["df2"]
 		self.interface["df3"] |= data_in["df3"]
 		self.interface["df4"] |= data_in["df4"]	
+		self.interface_resource.release()
 
 	def _handler_system_info_update(self, data_in, addr):
+		self.system_info_resource.acquire()
 		self.system_info[addr[0]]["cf1"] = data_in["cf1"]
 		self.system_info[addr[0]]["cf2"] = data_in["cf2"]
 		self.system_info[addr[0]]["cf3"] = data_in["cf3"]
@@ -60,6 +62,19 @@ class Elevator(object):
 		self.system_info[addr[0]]["lastF"] = data_in["lastF"]
 		self.system_info[addr[0]]["lastDir"] = data_in["lastDir"]
 		self.system_info[addr[0]]["busy"] = data_in["busy"]
+		self.system_info_release.release()
+		
+		
+	def _handler_external_request_done(self, data_in, addr):
+		self.interface_resource.acquire()
+		self.interface["uf1"] &= data_in["uf1"]
+		self.interface["uf2"] &= data_in["uf2"]
+		self.interface["uf3"] &= data_in["uf3"]
+
+		self.interface["df2"] &= data_in["df2"]
+		self.interface["df3"] &= data_in["df3"]
+		self.interface["df4"] &= data_in["df4"]	
+		self.interface_resource.release()
 
 
 	def _handler_chat(self, data_in, addr):
@@ -99,7 +114,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.148" : 0, "129.241.187.157" : 1}
+		self.hierachy = {"129.241.187.152" : 0, "129.241.187.157" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -117,7 +132,8 @@ class Elevator(object):
 							"dOa_q" : self._handler_deadOa_question, 
 							"dOa_r" : self._handler_deadOa_reply,
 							"IU" : self._handler_interface_update,
-							"SU" : self._handler_system_info_update}
+							"SU" : self._handler_system_info_update
+							"ERD" : self._handler_external_request_done}
 
 		#Creating a network object to receive messages
 		self.net_server = networkUDP(serverport, handlers_list = self.handler_dic)
@@ -161,7 +177,7 @@ class Elevator(object):
 		while True:
 			m_type =  "IU"
 			self.net_client.broadcast(m_type, self.interface)
-			
+			print self.interface			
 
 			time.sleep(1)
 
@@ -272,16 +288,19 @@ class Elevator(object):
 		if((direction == 1)):
 			if(destination == 3):
 				self.interface[translation_d[destination]] = 0
+				
 			else:
 				self.interface[translation_u[destination]] = 0 
+			
 		else:
 			if(destination == 0):
 				self.interface[translation_u[destination]] = 0
 			else:
 				self.interface[translation_d[destination]] = 0 
+		self.net_client.broadcast("ERD"," ")
 		self.interface_resource.release()
 		self.system_info_resource.release()
-
+	
 #		Open the door for 3 seconds to the passagers to enter
 		self.driver.elev_set_door_open_lamp(1)
 		time.sleep(3)

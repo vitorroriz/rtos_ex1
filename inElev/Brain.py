@@ -32,7 +32,8 @@ class Brain(object):
 
 
 
-#	def external_next_destin(self):
+	def external_next_destin(self):
+		
 
 
 	# def _internal_dir(self,current_floor, internal_request):
