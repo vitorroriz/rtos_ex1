@@ -31,9 +31,7 @@ class Elevator(object):
 
 	# -------- Handlers to received packets ----------------------------
 	def _handler_master_order(self,data_in, addr):
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["busy"] = 1
-		self.system_info_resource.release()
+
 		floor = data_in["floor"]
 		self._go_to_destin_e(floor)
 		self.system_info_resource.acquire()
@@ -43,7 +41,6 @@ class Elevator(object):
 
 
 	def _handler_interface_update(self,data_in, addr):
-		print "INTERFACE UPDATE HANDLER FROM ELEVATOR"
 
 		self.interface_resource.acquire()
 		self.interface["uf1"] |= data_in["uf1"]
@@ -110,7 +107,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.140" : 0, "129.241.187.155" : 1}
+		self.hierachy = {"129.241.187.140" : 0, "129.241.187.158" : 1}
 #		self.hierachy = {"129.241.187.140" : 0}
 
 
@@ -134,7 +131,7 @@ class Elevator(object):
 							"ERD" : self._handler_external_request_done}
 
 		#Creating a network object to receive messages
-		self.net_server = networkUDP(serverport, handlers_list = self.handler_dic)
+		self.net_server = networkUDP(serverport, serverhost = None, handlers_list = self.handler_dic)
 		#Creating a network object to broadcast
 		self.net_bdcast = networkUDP(serverport, serverhost = self.broadcastaddr, handlers_list = self.handler_dic)
 
@@ -160,7 +157,6 @@ class Elevator(object):
 		#Creating a Brain object
 		self.brain = Brain(self.system_info, self.interface, self.myIP)
 		
-		#Creating driver object to interface with hardware
 		self.thread_interfaceM  = threading.Thread(target = self.interfaceMonitor)
 		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
 		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
@@ -295,6 +291,7 @@ class Elevator(object):
 
 		self.driver.elev_set_motor_direction(0)
 
+
 		self.system_info_resource.acquire()
 		self.system_info[self.myIP][translation[destination]] = 0
 		self.interface_resource.acquire()
@@ -319,6 +316,10 @@ class Elevator(object):
 
 
 	def _go_to_destin_e(self, destination_o):
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["busy"] = 1
+		self.system_info_resource.release()
+
 		translation_d = {0: "uf1", 1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0: "uf1" , 1 : "uf2" , 2 : "uf3", 3 : "df4"}
 
@@ -347,6 +348,10 @@ class Elevator(object):
 
 
 		self.driver.elev_set_motor_direction(0)
+
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["busy"] = 0
+		self.system_info_resource.release()
 
 		self.interface_resource.acquire()
 		self.interface[translation_u[destination]] = 0
@@ -401,7 +406,7 @@ class Elevator(object):
 
 							else:			
 								self.master_order(elevator_IP, destin)
-								print "I SENT THIS ORDER TO SOMEONE ELSE"
+								print "I SENT THIS ORDER TO " + elevator_IP + ":" + str(self.serverport) 
 					else:
 						#if the elevator is busy, dont do nothing, just remeber to release the resource
 						self.system_info_resource.release()
@@ -437,6 +442,7 @@ def main():
 	print elevator1.net_server.getmyip()
 	print "Master = 1 Slave = 0 ---> master_or_slaven = " + str(elevator1.master_or_slaven)
 	
+	thread_server = threading.Thread(target = elevator1.net_server.listen)
 	
 	elevator1.thread_interfaceM.start()
 	elevator1.thread_interfaceU.start()
@@ -452,7 +458,7 @@ def main():
 #		elevator1.net_client.broadcast(m_type, ms)
 #		time.sleep(2)
 
-
+	thread_server.start()
 	elevator1.net_bdcast.listen()
 
 
@@ -463,6 +469,7 @@ def main():
 	elevator1.thread_positionM.join()
 	elevator1.thread_internalE.join()
 	elevator1.thread_externalE.join()
+	thread_server.join()
 
 if __name__ == '__main__':
 	main()
