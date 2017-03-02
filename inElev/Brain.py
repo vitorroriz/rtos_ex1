@@ -67,8 +67,8 @@ class Brain(object):
 			self.system_info_v["lastDir"] = 0
 			self.system_info_v["busy"] = 0
 			#print "B"
-			return self.system_info_v["lastF"]
-
+			#return self.system_info_v["lastF"]
+			return -1
 
 
 
