@@ -114,7 +114,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.152" : 0, "129.241.187.148" : 1}
+		self.hierachy = {"129.241.187.48" : 0, "129.241.187.148" : 1}
 
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierachy)
@@ -169,7 +169,7 @@ class Elevator(object):
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
 		self.thread_positionM 	= threading.Thread(target = self.positionMonitor)
 		self.thread_internalE   = threading.Thread(target = self.internal_exe)
-
+		self.thread_externalE   = threading.Thread(target = self.external_exe)
 		#Sending the lift to a known position (default = 0)
 		self._system_init()
 
@@ -242,27 +242,14 @@ class Elevator(object):
 				self.system_info_resource.acquire()
 				self.system_info[self.myIP]["lastF"] = floor
 				self.system_info_resource.release()
-#			print "F: " + str(floor)
-			time.sleep(0.01) #10 times per second
+			time.sleep(0.01) #100 times per second
+
 
 	
-	def execute_order(self):
-		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
-		while True:
-			self.floorSensor = self.driver.elev_get_floor_sensor_signal()
-
-			if self.floorSensor != -1:
-				self.lastFloor = self.floorSensor
-				self.system_info_resource.acquire()
-				if self.system_info[self.myIP][translation[self.floorSensor]]: 
-					self.driver.elev_set_motor_direction(DIRN_STOP)
-				self.system_info_resource.release()
-
-	def go_to_destin(self, destination_o):
+	def _go_to_destin(self, destination_o):
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
 		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
-
 
 #		print "GOING TO DESTINATION " + str(destination)
 		destination = destination_o
@@ -273,14 +260,21 @@ class Elevator(object):
 		elif(distance < 0):
 			direction = -1
 		else:
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP][translation[destination]] = 0
+			self.system_info_resource.release()
 			return
+
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["lastDir"] = direction
+		self.system_info_resource.release()
 
 		while(self.system_info[self.myIP]["lastF"] != destination):
 			destination = self.brain.internal_next_destin()
 			self.driver.elev_set_motor_direction(direction)
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP]["lastDir"] = direction
-			self.system_info_resource.release()
+			# self.system_info_resource.acquire()
+			# self.system_info[self.myIP]["lastDir"] = direction
+			# self.system_info_resource.release()
 
 		self.driver.elev_set_motor_direction(0)
 
@@ -302,20 +296,75 @@ class Elevator(object):
 		self.net_client.broadcast("ERD",self.interface)
 		self.interface_resource.release()
 		self.system_info_resource.release()
-	
 #		Open the door for 3 seconds to the passagers to enter
+		self.open_door(3)
+
+
+
+	def _go_to_destin_e(self, destination_o):
+		translation_d = {0: "uf1", 1 : "df2" , 2 : "df3" , 3 : "df4"}
+		translation_u = {0: "uf1" , 1 : "uf2" , 2 : "uf3", 3 : "df4"}
+
+#		print "GOING TO DESTINATION " + str(destination)
+		destination = destination_o
+		current = self.system_info[self.myIP]["lastF"]
+		distance = destination - current
+		if (distance > 0):
+			direction = 1
+		elif(distance < 0):
+			direction = -1
+		else:
+			self.interface_resource.acquire()
+
+			self.interface[translation_u[destination]] = 0
+			self.interface[translation_d[destination]] = 0
+			self.interface_resource.release()
+			return
+
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["lastDir"] = direction
+		self.system_info_resource.release()
+
+		while(self.system_info[self.myIP]["lastF"] != destination):
+			#destination = self.brain.external_next_destin(self.myIP)
+			self.driver.elev_set_motor_direction(direction)
+
+		self.driver.elev_set_motor_direction(0)
+
+		self.interface_resource.acquire()
+		self.interface[translation_u[destination]] = 0
+		self.interface[translation_d[destination]] = 0
+		self.interface_resource.release()
+
+
+		self.net_client.broadcast("ERD",self.interface)
+
+#		Open the door for 3 seconds to the passagers to enter
+		self.open_door(3)
+
+
+
+	def open_door(self, time_s):
 		self.driver.elev_set_door_open_lamp(1)
-		time.sleep(3)
+		time.sleep(time_s)
 		self.driver.elev_set_door_open_lamp(0)
 
 
 	def internal_exe(self):
 		while True:
 			destin = self.brain.internal_next_destin()
-			self.go_to_destin(destin)
+			self._go_to_destin(destin)
 #			print "Destin: " + str(destin)
 			time.sleep(1)
 			print self.interface
+
+	def external_exe(self):
+		while True:
+			destin = self.brain.external_next_destin(self.myIP)
+			self._go_to_destin_e(destin)
+#			print "Destin: " + str(destin)
+			time.sleep(1)
+		
 
 	def _system_init(self):
 		floor = -1
@@ -351,7 +400,7 @@ def main():
 	elevator1.thread_systeminfoB.start()
 	elevator1.thread_positionM.start()
 	elevator1.thread_internalE.start()
-	
+	elevator1.thread_externalE.start()	
 
 #	while True:
 #		m_type = "request"
@@ -369,6 +418,7 @@ def main():
 	elevator1.thread_systeminfoB.join()
 	elevator1.thread_positionM.join()
 	elevator1.thread_internalE.join()
+	elevator1.thread_externalE.join()
 
 if __name__ == '__main__':
 	main()

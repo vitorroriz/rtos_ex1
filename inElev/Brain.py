@@ -1,18 +1,26 @@
 class Brain(object):
 	"""docstring for Brain"""
 	def __init__(self, system_info, externals, myIP):
+		self.system_info = system_info
 		self.system_info_v = system_info[myIP]
 		self.externals = externals
 
 
 	def internal_next_destin(self):
+		#saving the status of the internal buttons for a specific elevator
 		cf1 = self.system_info_v["cf1"]
 		cf2 = self.system_info_v["cf2"] 
 		cf3 = self.system_info_v["cf3"] 
 		cf4 = self.system_info_v["cf4"] 
+
+		#translation for the dictionaries
 		internal_requests = {"cf1" : cf1 , "cf2" : cf2, "cf3" : cf3, "cf4" : cf4}
 		i_dic_int = {"cf1" : 0, "cf2" : 1 , "cf3" : 2 , "cf4" : 3}
+
+		#empty dictionary to register potential internal requests to attend
 		distances = {}
+
+		#Reading the internal requests (and some external according to policy) and calculating the next destination
 		for i in internal_requests.keys():
 			if internal_requests[i] != 0:
 				if(self.system_info_v["lastDir"] == 0):
@@ -22,18 +30,49 @@ class Brain(object):
 				if (distance_raw > 0):
 					distances[i] = distance_raw
 		try:
+			#if there is some potential destinal, min() will not fail and we take the nearest one
 			destination = min(distances, key=distances.get)
 			self.system_info_v["busy"] = 1
+			#return next destination calculated
+			return i_dic_int[destination]
+		except:
+			#if there is no more potential destination for the internal part, min() causes an excepetion, then we 
+			#declare that elevator stopped (lastDir = 0) and we release the elevator to be allocated to external 
+			#requestions by the master (busy = 0)
+			self.system_info_v["lastDir"] = 0
+			self.system_info_v["busy"] = 0
+			#Also we need to return the current floor (lastF) as the next destination
+			return self.system_info_v["lastF"]
+
+
+	def external_next_destin(self, elevator_IP):
+		#Returns the next_destin for a given elevator, based in the external requests
+
+		#translation for the dictionaries
+#		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
+#		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
+		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
+
+		distances = {}
+
+		for button in self.externals.keys():
+			if self.externals[button] != 0:
+				distance_raw = abs(i_dic_ext[button] - self.system_info[elevator_IP]["lastF"])
+				distances[button] = distance_raw
+		try:
+			destination = min(distances, key=distances.get)
+			return i_dic_ext[destination]
+			#print "A"
 		except:
 			self.system_info_v["lastDir"] = 0
 			self.system_info_v["busy"] = 0
+			#print "B"
 			return self.system_info_v["lastF"]
-		return i_dic_int[destination]
 
 
 
-#p	def external_next_destin(self):
-		
+
+
 
 
 	# def _internal_dir(self,current_floor, internal_request):

@@ -6,13 +6,6 @@ import threading
 import pickle
 
 
-#The messages sent and received are dictionary types with two layers:
-#External layer:
-#data_out = {"m_type" : my_m_type, "data" : data_in}
-#Internal layer:
-#data_in = {to be defined by app}
-
-
 class networkUDP:
     'Class that defines a simple UDP server'
 
