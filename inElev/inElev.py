@@ -42,7 +42,13 @@ class Elevator(object):
 		self.system_info[self.myIP]["busy"] = 0
 		self.system_info_resource.release()
 
+	def _handler_master_update_destin(self,data_in,addr):
+		elevator_IP  = data_in["elevator_IP"]
+		ex_destin = data_in["ex_destin"]
 
+		self.system_info_resource.acquire()
+		self.system_info[elevatorIP]["ex_destin"] = ex_destin
+		self.system_info_resource.release()
 
 	def _handler_interface_update(self,data_in, addr):
 
@@ -85,7 +91,7 @@ class Elevator(object):
 		#updating the status of masterAlive
 		self.masterAlive = 1
 		#fetching master address to reply to the question
-		addr = (self.hierachy["master"], self.serverport)
+		addr = (self.hierarchy["master"], self.serverport)
 		print "Dear or alive question handler, I will reply to: " + str(addr)
 		#setting up the reply message and sendint it
 		m_type = "dOa_r"
@@ -99,8 +105,8 @@ class Elevator(object):
 
 	def _handler_switchmaster(self, data_in, addr):
 		print "Switch master handler"
-		self.hierachy["master"] = self.hierachy["slave1"]
-		self.hierachy["slave1"] = self.hierachy["slave2"]
+		self.hierarchy["master"] = self.hierarchy["slave1"]
+		self.hierarchy["slave1"] = self.hierarchy["slave2"]
 		print ""
 
 		print "Handler order"
@@ -110,18 +116,18 @@ class Elevator(object):
 	def __init__(self, serverport = 20023):		
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
-		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.38" : 0, "129.241.187.48" : 1}
-	#	self.hierachy = {"129.241.187.153" : 0}
+		#Dictionary for the hierarchy in the system
+		self.hierarchy = {"129.241.187.38" : 0, "129.241.187.48" : 1}
+	#	self.hierarchy = {"129.241.187.153" : 0}
 
 
 		#Number of elevators in the system
-		self.number_of_elevators = len(self.hierachy)
+		self.number_of_elevators = len(self.hierarchy)
 
 		self.system_info = {}
-		for i in self.hierachy.keys():
+		for i in self.hierarchy.keys():
 			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, 
-									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0, "ex_destin" : -1}
+									"M/MW/S" : self.hierarchy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0, "ex_destin" : -1}
 
 		self.system_info_resource = threading.Lock()
 		self.interface_resource = threading.Lock()
@@ -159,7 +165,7 @@ class Elevator(object):
 		
 
 		#Creating a Brain object
-		self.brain = Brain(self.system_info, self.interface, self.myIP)
+		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy)
 		
 		self.thread_interfaceM  = threading.Thread(target = self.interfaceMonitor)
 		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
@@ -409,6 +415,10 @@ class Elevator(object):
 		addr = (elevator_IP, self.serverport)
 		self.net_client.sendto(addr, m_type, msg)
 
+	def _master_update_destin(self, elevator_IP, destin):
+		m_type = "DU"
+		msg = {"elevatorIP" : elevator_IP, "ex_destin": destin}
+
 	def internal_exe(self):
 		while True:
 			if self.system_info[self.myIP]["busy"] != -1:
@@ -425,12 +435,14 @@ class Elevator(object):
 		while True:
 			#checking if i am the master
 			if (self.master_or_slaven == 0):
-				for elevator_IP in self.hierachy.keys():
+				for elevator_IP in self.hierarchy.keys():
 					self.system_info_resource.acquire()
 					if self.system_info[elevator_IP]["busy"] != 1:
 						#print "Entrying the for for ip " + elevator_IP + " busy = " + str(self.system_info[elevator_IP]["busy"])
 						self.system_info_resource.release()
 						destin = self.brain.external_next_destin(elevator_IP)
+						self.system_info[elevator_IP]["ex_destin"] = destin
+						self._master_update_destin(elevator_IP, destin)
 						if destin != -1:
 							if (elevator_IP == self.myIP):
 								print "Sending a thread to handle the movement"
@@ -452,7 +464,7 @@ class Elevator(object):
 #			print "Destin: " + str(destin)
 
 		
-
+	
 	def _system_init(self):
 		floor = -1
 		while floor != 0:

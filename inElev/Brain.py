@@ -1,10 +1,10 @@
 class Brain(object):
 	"""docstring for Brain"""
-	def __init__(self, system_info, externals, myIP):
+	def __init__(self, system_info, externals, myIP, hierarchy):
 		self.system_info = system_info
 		self.system_info_v = system_info[myIP]
 		self.externals = externals
-
+		self.hierarchy = hierarchy
 
 	def internal_next_destin(self):
 		#saving the status of the internal buttons for a specific elevator
@@ -56,7 +56,7 @@ class Brain(object):
 		distances = {}
 
 		for button in self.externals.keys():
-			if self.externals[button] != 0:
+			if ( (self.externals[button] != 0) and (self._is_destin_valid(button))):
 				distance_raw = abs(i_dic_ext[button] - self.system_info[elevator_IP]["lastF"])
 				distances[button] = distance_raw
 		try:
@@ -71,7 +71,14 @@ class Brain(object):
 			return -1
 
 
+	def _is_destin_valid(self, button):
+		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
 
+		for elevator in self.hierarchy.keys():
+			if self.system_info[elevator]["ex_destin"] == i_dic_ext[button]:
+				return 0
+		return 1
+			
 
 
 
