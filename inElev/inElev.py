@@ -38,6 +38,7 @@ class Elevator(object):
 		floor = data_in["floor"]
 		self._go_to_destin_e(floor)
 		self.system_info_resource.acquire()
+		print "Got a master order, movement done!"
 		self.system_info[self.myIP]["busy"] = 0
 		self.system_info_resource.release()
 
@@ -120,7 +121,7 @@ class Elevator(object):
 		self.system_info = {}
 		for i in self.hierachy.keys():
 			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, 
-									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0}
+									"M/MW/S" : self.hierachy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0, "ex_destin" : -1}
 
 		self.system_info_resource = threading.Lock()
 		self.interface_resource = threading.Lock()
@@ -274,6 +275,10 @@ class Elevator(object):
 	def _go_to_destin(self, destination_o):
 		#PRIVATE METHOD, it is not in the interface
 		#Method to be used to execute internal orders
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["busy"] = 1
+		self.system_info_resource.release()
+
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
 		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
@@ -326,6 +331,9 @@ class Elevator(object):
 		self.system_info_resource.release()
 #		Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["busy"] = 0
+		self.system_info_resource.release()
 
 
 
@@ -384,7 +392,7 @@ class Elevator(object):
 		self.system_info_resource.acquire()
 		self.system_info[self.myIP]["busy"] = 0
 		self.system_info_resource.release()
-
+		print "Movement done!"
 
 
 
@@ -403,12 +411,15 @@ class Elevator(object):
 
 	def internal_exe(self):
 		while True:
-			destin = self.brain.internal_next_destin()
-			self._go_to_destin(destin)
-#			print "Destin: " + str(destin)
+			if self.system_info[self.myIP]["busy"] != -1:
+				destin = self.brain.internal_next_destin()
+				#print self.system_info
+				if destin != -1:
+					self._go_to_destin(destin)
+			print "Destin: " + str(destin)
 			time.sleep(1)
-			print self.interface
-			print self.myIP + " ---> busy = " + str(self.system_info[self.myIP]["busy"])
+			#print self.interface
+			#print self.myIP + " ---> busy = " + str(self.system_info[self.myIP]["busy"])
 
 	def external_exe(self):
 		while True:
@@ -417,16 +428,19 @@ class Elevator(object):
 				for elevator_IP in self.hierachy.keys():
 					self.system_info_resource.acquire()
 					if self.system_info[elevator_IP]["busy"] != 1:
+						#print "Entrying the for for ip " + elevator_IP + " busy = " + str(self.system_info[elevator_IP]["busy"])
 						self.system_info_resource.release()
 						destin = self.brain.external_next_destin(elevator_IP)
 						if destin != -1:
 							if (elevator_IP == self.myIP):
-								print "IVE GOT MY DESTIN"
+								print "Sending a thread to handle the movement"
 								#self._go_to_destin_e(destin)
+								self.system_info_resource.acquire()
 								self.system_info[self.myIP]["busy"] = 1
+								self.system_info_resource.release()	
 								thread_execution = threading.Thread(target = self._go_to_destin_e, args = (destin,))
 								thread_execution.start()
-								print "I AM DONE WITH THE MOVEMENT"
+								
 
 							else:			
 								self.master_order(elevator_IP, destin)
@@ -434,9 +448,9 @@ class Elevator(object):
 					else:
 						#if the elevator is busy, dont do nothing, just remeber to release the resource
 						self.system_info_resource.release()
-					time.sleep(0.5) #sleep for a while inside the floor so the elevator can take the order
+				time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
 #			print "Destin: " + str(destin)
-			time.sleep(1)
+
 		
 
 	def _system_init(self):

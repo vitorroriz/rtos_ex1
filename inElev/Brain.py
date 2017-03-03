@@ -32,7 +32,7 @@ class Brain(object):
 		try:
 			#if there is some potential destinal, min() will not fail and we take the nearest one
 			destination = min(distances, key=distances.get)
-			self.system_info_v["busy"] = 1
+			#self.system_info_v["busy"] = 1
 			#return next destination calculated
 			return i_dic_int[destination]
 		except:
@@ -40,9 +40,9 @@ class Brain(object):
 			#declare that elevator stopped (lastDir = 0) and we release the elevator to be allocated to external 
 			#requestions by the master (busy = 0)
 			self.system_info_v["lastDir"] = 0
-			self.system_info_v["busy"] = 0
+			#self.system_info_v["busy"] = 0
 			#Also we need to return the current floor (lastF) as the next destination
-			return self.system_info_v["lastF"]
+			return -1
 
 
 	def external_next_destin(self, elevator_IP):
@@ -65,7 +65,7 @@ class Brain(object):
 			#print "A"
 		except:
 			self.system_info_v["lastDir"] = 0
-			self.system_info_v["busy"] = 0
+			#self.system_info_v["busy"] = 0
 			#print "B"
 			#return self.system_info_v["lastF"]
 			return -1
