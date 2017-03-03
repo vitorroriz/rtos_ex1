@@ -392,7 +392,8 @@ class Elevator(object):
 
 		self.system_info_resource.acquire()
 		self.system_info[self.myIP]["ex_destin"] = -1
-		self.system_info_resource.acquire()
+		self._update_destin(self.myIP, -1)
+		self.system_info_resource.release()
 		#		Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
 		
@@ -418,7 +419,7 @@ class Elevator(object):
 		addr = (elevator_IP, self.serverport)
 		self.net_client.sendto(addr, m_type, msg)
 
-	def _master_update_destin(self, elevator_IP, destin):
+	def _update_destin(self, elevator_IP, destin):
 		m_type = "DU"
 		msg = {"elevatorIP" : elevator_IP, "ex_destin": destin}
 
