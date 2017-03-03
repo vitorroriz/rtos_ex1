@@ -107,8 +107,8 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-		self.hierachy = {"129.241.187.140" : 0, "129.241.187.158" : 1}
-#		self.hierachy = {"129.241.187.140" : 0}
+#		self.hierachy = {"129.241.187.140" : 0, "129.241.187.158" : 1}
+		self.hierachy = {"129.241.187.157" : 0}
 
 
 		#Number of elevators in the system
@@ -401,7 +401,10 @@ class Elevator(object):
 						if destin != -1:
 							if (elevator_IP == self.myIP):
 								print "IVE GOT MY DESTIN"
-								self._go_to_destin_e(destin)
+								#self._go_to_destin_e(destin)
+								self.system_info[self.myIP]["busy"] = 1
+								thread_execution = threading.Thread(target = _go_to_destin_e, args = destin)
+								thread_execution.start()
 								print "I AM DONE WITH THE MOVEMENT"
 
 							else:			
