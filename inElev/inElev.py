@@ -42,12 +42,12 @@ class Elevator(object):
 		self.system_info[self.myIP]["busy"] = 0
 		self.system_info_resource.release()
 
-	def _handler_master_update_destin(self,data_in,addr):
+	def _handler_update_destin(self,data_in,addr):
 		elevator_IP  = data_in["elevator_IP"]
 		ex_destin = data_in["ex_destin"]
 
 		self.system_info_resource.acquire()
-		self.system_info[elevatorIP]["ex_destin"] = ex_destin
+		self.system_info[elevator_IP]["ex_destin"] = ex_destin
 		self.system_info_resource.release()
 
 	def _handler_interface_update(self,data_in, addr):
@@ -138,7 +138,8 @@ class Elevator(object):
 							"dOa_r" : self._handler_deadOa_reply,
 							"IU" : self._handler_interface_update,
 							"SU" : self._handler_system_info_update,
-							"ERD" : self._handler_external_request_done}
+							"ERD" : self._handler_external_request_done,
+							"DU" : self._handler_update_destin}
 
 		#Creating a network object to receive messages
 		self.net_server = networkUDP(serverport, serverhost = None, handlers_list = self.handler_dic)
@@ -365,6 +366,11 @@ class Elevator(object):
 			self.interface[translation_d[destination]] = 0
 			self.net_client.broadcast("ERD",self.interface)
 			self.interface_resource.release()
+
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP]["ex_destin"] = -1
+			self._update_destin(self.myIP, -1)
+			self.system_info_resource.release()
 					
 			self.open_door(3)
 			
@@ -421,8 +427,9 @@ class Elevator(object):
 
 	def _update_destin(self, elevator_IP, destin):
 		m_type = "DU"
-		msg = {"elevatorIP" : elevator_IP, "ex_destin": destin}
-
+		msg = {"elevator_IP" : elevator_IP, "ex_destin": destin}
+		self.net_client.broadcast(m_type, msg)
+		
 	def internal_exe(self):
 		while True:
 			if self.system_info[self.myIP]["busy"] != -1:
@@ -449,7 +456,7 @@ class Elevator(object):
 						
 						if destin != -1:
 							self.system_info[elevator_IP]["ex_destin"] = destin
-							self._master_update_destin(elevator_IP, destin)						
+							self._update_destin(elevator_IP, destin)						
 							if (elevator_IP == self.myIP):
 								print "Sending a thread to handle the movement"
 								#self._go_to_destin_e(destin)
