@@ -173,9 +173,9 @@ class Elevator(object):
 	def _interfaceBroadcast(self):
 		while True:
 			m_type =  "IU"
-			self.interface.acquire()
+			self.interface_resource.acquire()
 			self.net_client.broadcast(m_type, self.interface)
-			self.interface.release()			
+			self.interface_resource.release()			
 
 			time.sleep(0.1)
 
