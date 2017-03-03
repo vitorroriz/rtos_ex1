@@ -117,7 +117,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierarchy in the system
-		self.hierarchy = {"129.241.187.38" : 0, "129.241.187.48" : 1}
+		self.hierarchy = {"129.241.187.38" : 0, "129.241.187.48" : 1, "129.241.187.46" : 2}
 	#	self.hierarchy = {"129.241.187.153" : 0}
 
 
@@ -185,7 +185,7 @@ class Elevator(object):
 			self.net_client.broadcast(m_type, self.interface)
 			self.interface_resource.release()			
 
-			time.sleep(0.1)
+			time.sleep(0.7)
 
 	def _systeminfoBroadcast(self):
 		while True:
@@ -437,7 +437,7 @@ class Elevator(object):
 				#print self.system_info
 				if destin != -1:
 					self._go_to_destin(destin)
-			print "Destin: " + str(destin)
+		#	print "Destin: " + str(destin)
 			time.sleep(1)
 			#print self.interface
 			#print self.myIP + " ---> busy = " + str(self.system_info[self.myIP]["busy"])
@@ -473,7 +473,7 @@ class Elevator(object):
 					else:
 						#if the elevator is busy, dont do nothing, just remeber to release the resource
 						self.system_info_resource.release()
-				time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
+					time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
 #			print "Destin: " + str(destin)
 
 		
