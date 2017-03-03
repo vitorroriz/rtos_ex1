@@ -31,6 +31,9 @@ class Elevator(object):
 
 	# -------- Handlers to received packets ----------------------------
 	def _handler_master_order(self,data_in, addr):
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["busy"] = 1
+		self.system_info_resource.release()
 
 		floor = data_in["floor"]
 		self._go_to_destin_e(floor)
@@ -107,8 +110,8 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-#		self.hierachy = {"129.241.187.153" : 0, "129.241.187.157" : 1}
-		self.hierachy = {"129.241.187.153" : 0}
+		self.hierachy = {"129.241.187.38" : 0, "129.241.187.48" : 1}
+	#	self.hierachy = {"129.241.187.153" : 0}
 
 
 		#Number of elevators in the system
@@ -170,15 +173,18 @@ class Elevator(object):
 	def _interfaceBroadcast(self):
 		while True:
 			m_type =  "IU"
+			self.interface.acquire()
 			self.net_client.broadcast(m_type, self.interface)
-						
+			self.interface.release()			
 
 			time.sleep(0.1)
 
 	def _systeminfoBroadcast(self):
 		while True:
 			m_type = "SU"
+			self.system_info_resource.acquire()
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
+			self.system_info_resource.release()
 #			print self.system_info[self.myIP]["busy"]
 
 			time.sleep(0.1)
@@ -239,23 +245,31 @@ class Elevator(object):
 			time.sleep(0.01) #100 times per second
 
 
-	def go_to_destin(self, destination):
-		#Public method, it is in the class interface. Sends the elevator to a specific floor.
-		current = self.system_info[self.myIP]["lastF"]
-		distance = destination - current
-		if (distance > 0):
-			direction = 1
-		elif(distance < 0):
-			direction = -1
-		else:
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP][translation[destination]] = 0
-			self.system_info_resource.release()
-			return
 
-		while(self.system_info[self.myIP]["lastF"] != destination):
-			self.driver.elev_set_motor_direction(direction)
-		self.driver.elev_set_motor_direction(0)
+
+
+
+#	def go_to_destin(self, destination):
+#		#Public method, it is in the class interface. Sends the elevator to a specific floor.
+#		current = self.system_info[self.myIP]["lastF"]
+#		distance = destination - current
+#		if (distance > 0):
+#			direction = 1
+#		elif(distance < 0):
+#			direction = -1
+#		else:
+#			self.system_info_resource.acquire()
+#			self.system_info[self.myIP][translation[destination]] = 0
+#			self.system_info_resource.release()
+#			return
+
+#		while(self.system_info[self.myIP]["lastF"] != destination):
+#			self.driver.elev_set_motor_direction(direction)
+#		self.driver.elev_set_motor_direction(0)
+
+
+
+
 
 	def _go_to_destin(self, destination_o):
 		#PRIVATE METHOD, it is not in the interface
