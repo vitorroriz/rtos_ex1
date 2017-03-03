@@ -383,11 +383,6 @@ class Elevator(object):
 
 
 		self.driver.elev_set_motor_direction(0)
-
-		#		Open the door for 3 seconds to the passagers to enter
-		self.open_door(3)
-		
-
 		self.interface_resource.acquire()
 		self.interface[translation_u[destination]] = 0
 		self.interface[translation_d[destination]] = 0
@@ -395,6 +390,14 @@ class Elevator(object):
 		self.interface_resource.release()
 
 
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["ex_destin"] = -1
+		self.system_info_resource.acquire()
+		#		Open the door for 3 seconds to the passagers to enter
+		self.open_door(3)
+		
+
+		
 		self.system_info_resource.acquire()
 		self.system_info[self.myIP]["busy"] = 0
 		self.system_info_resource.release()
@@ -441,9 +444,11 @@ class Elevator(object):
 						#print "Entrying the for for ip " + elevator_IP + " busy = " + str(self.system_info[elevator_IP]["busy"])
 						self.system_info_resource.release()
 						destin = self.brain.external_next_destin(elevator_IP)
-						self.system_info[elevator_IP]["ex_destin"] = destin
-						self._master_update_destin(elevator_IP, destin)
+						print "MASTER sending : " + elevator_IP + " to floor " + str(destin+1)  
+						
 						if destin != -1:
+							self.system_info[elevator_IP]["ex_destin"] = destin
+							self._master_update_destin(elevator_IP, destin)						
 							if (elevator_IP == self.myIP):
 								print "Sending a thread to handle the movement"
 								#self._go_to_destin_e(destin)

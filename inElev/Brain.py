@@ -56,7 +56,7 @@ class Brain(object):
 		distances = {}
 
 		for button in self.externals.keys():
-			if ( (self.externals[button] != 0) and (self._is_destin_valid(button))):
+			if  (self.externals[button] != 0) and (self._is_destin_valid(button, elevator_IP)):
 				distance_raw = abs(i_dic_ext[button] - self.system_info[elevator_IP]["lastF"])
 				distances[button] = distance_raw
 		try:
@@ -71,12 +71,15 @@ class Brain(object):
 			return -1
 
 
-	def _is_destin_valid(self, button):
+	def _is_destin_valid(self, button, elevator_IP):
 		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
 
 		for elevator in self.hierarchy.keys():
+			print "ex_destin of " + elevator + " is " + str(self.system_info[elevator]["ex_destin"])
 			if self.system_info[elevator]["ex_destin"] == i_dic_ext[button]:
+				print "BRAIN: returning 0 for button " + button + " elevator: " + elevator_IP + " because of " + elevator 
 				return 0
+	
 		return 1
 			
 
