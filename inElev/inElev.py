@@ -107,8 +107,8 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierachy in the system
-#		self.hierachy = {"129.241.187.140" : 0, "129.241.187.158" : 1}
-		self.hierachy = {"129.241.187.157" : 0}
+#		self.hierachy = {"129.241.187.153" : 0, "129.241.187.157" : 1}
+		self.hierachy = {"129.241.187.153" : 0}
 
 
 		#Number of elevators in the system
@@ -335,7 +335,14 @@ class Elevator(object):
 			self.interface_resource.acquire()
 			self.interface[translation_u[destination]] = 0
 			self.interface[translation_d[destination]] = 0
+			self.net_client.broadcast("ERD",self.interface)
 			self.interface_resource.release()
+					
+			self.open_door(3)
+			
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP]["busy"] = 0
+			self.system_info_resource.release()
 			return
 
 		self.system_info_resource.acquire()
@@ -349,21 +356,21 @@ class Elevator(object):
 
 		self.driver.elev_set_motor_direction(0)
 
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["busy"] = 0
-		self.system_info_resource.release()
+		#		Open the door for 3 seconds to the passagers to enter
+		self.open_door(3)
+		
 
 		self.interface_resource.acquire()
 		self.interface[translation_u[destination]] = 0
 		self.interface[translation_d[destination]] = 0
+		self.net_client.broadcast("ERD",self.interface)
 		self.interface_resource.release()
 
 
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP]["busy"] = 0
+		self.system_info_resource.release()
 
-		self.net_client.broadcast("ERD",self.interface)
-
-#		Open the door for 3 seconds to the passagers to enter
-		self.open_door(3)
 
 
 
@@ -403,7 +410,7 @@ class Elevator(object):
 								print "IVE GOT MY DESTIN"
 								#self._go_to_destin_e(destin)
 								self.system_info[self.myIP]["busy"] = 1
-								thread_execution = threading.Thread(target = _go_to_destin_e, args = destin)
+								thread_execution = threading.Thread(target = self._go_to_destin_e, args = (destin,))
 								thread_execution.start()
 								print "I AM DONE WITH THE MOVEMENT"
 
