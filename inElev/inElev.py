@@ -207,7 +207,7 @@ class Elevator(object):
 			self.system_info_resource.acquire()
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 			self.system_info_resource.release()
-			print self.system_info[self.myIP]["busy"]
+#			print self.system_info[self.myIP]["busy"]
 
 			time.sleep(0.01)
 				
