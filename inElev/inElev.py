@@ -103,12 +103,13 @@ class Elevator(object):
 		m_type = "dOa_r"
 		addr_to_reply = (addr[0], self.serverport) 
 		self.net_client.sendto(addr_to_reply, m_type,"")
-		print "SLAVE: Master asked if I'm alive and I replied at " + str(datetime.datetime.now()) + "to " + str(addr)
+		print "SLAVE: Master asked if I'm alive and I replied at " + str(datetime.datetime.now()) + " to " + str(addr_to_reply)
 
 	def _handler_deadOa_reply(self,data_in, addr):
+
 		self.control_info[addr[0]]["LRT"] = time.time()
 		self._update_control_info(addr[0], None, None, self.control_info[addr[0]]["LRT"], None)
-
+		print "MASTER: elevator " + addr[0] + " replied my question at " + str(self.control_info[addr[0]]["LRT"])
 	def _handler_switchmaster(self, data_in, addr):
 		print "Switch master handler"
 		self.hierarchy["master"] = self.hierarchy["slave1"]
@@ -123,7 +124,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierarchy in the system
-		self.hierarchy = {"129.241.187.48" : 0, "129.241.187.38" : 1}
+		self.hierarchy = {"129.241.187.48" : 0, "129.241.187.38" : 1, "129.241.187.144" : 2}
 	#	self.hierarchy = {"129.241.187.153" : 0}
 
 		#Number of elevators in the system
@@ -166,9 +167,9 @@ class Elevator(object):
 		#Flag for slave1 monitor if the master is alive
 		self.masterAlive = 1
 		#Tolerance in seconds to receive a question from master
-		self.masterWatcher_tolerance = 10
+		self.masterWatcher_tolerance = 5
 		#Tolerance in seconds to the master receive a reply of dead or alive question from slave
-		self.dead_or_alive_time_tolerance = 10
+		self.dead_or_alive_time_tolerance = 12
 		
 
 		#Collection current external requests in the system for each floor
@@ -516,7 +517,7 @@ class Elevator(object):
 	def _masterWatcher(self):
 		while True:
 			if self.control_info[self.myIP]["M/MW/S"] == 1:
-				print "MASTERWatcher: masterAlive = " + str(self.masterAlive) + "at " + str(datetime.datetime.now())
+				print "MASTERWatcher: masterAlive = " + str(self.masterAlive) + " at " + str(datetime.datetime.now())
 				#I am the master watcher!	
 				if self.masterAlive != 1:
 					self._switchmaster()
@@ -561,6 +562,7 @@ class Elevator(object):
 				#if this is true, I AM THE MASTER!! Muhahahaha
 				m_type = "dOa_q"
 				self.net_client.broadcast(m_type, "")
+				print "I AM MASTER (48): I HAVE SENT A QUESTION AT " + str(datetime.datetime.now())
 				number_of_dead_elevators = 0
 				current_time = time.time()
 				for elevator in self.hierarchy:
