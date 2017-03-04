@@ -167,9 +167,9 @@ class Elevator(object):
 		#Flag for slave1 monitor if the master is alive
 		self.masterAlive = 1
 		#Tolerance in seconds to receive a question from master
-		self.masterWatcher_tolerance = 5
+		self.masterWatcher_tolerance = 10
 		#Tolerance in seconds to the master receive a reply of dead or alive question from slave
-		self.dead_or_alive_time_tolerance = 12
+		self.dead_or_alive_time_tolerance = 10
 		
 
 		#Collection current external requests in the system for each floor
@@ -202,28 +202,47 @@ class Elevator(object):
 			time.sleep(0.7)
 
 	def _systeminfoBroadcast(self):
-		while True:
+		#while True:
 			m_type = "SU"
 			self.system_info_resource.acquire()
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 			self.system_info_resource.release()
 #			print self.system_info[self.myIP]["busy"]
 
-			time.sleep(0.01)
+		#	time.sleep(0.01)
 				
 
 	def interfaceMonitor(self):
 		while True:
 
-			self.interface_resource.acquire()
-			self.interface["uf1"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			self.interface["uf2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
-			self.interface["uf3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
+			
+
+			uf1 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			uf2 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			uf3 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			df2 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			df3 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			df4 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+
+			current_reading = {"uf1" : uf1, "uf2" : uf2, "uf3" : uf3, "df2" : df2, "df3" : df3, "df4" : df4}
+			change_in_interface = 0
+			for button in self.interface.keys():
+				if ((self.interface[button] == 0) and (current_reading[button] == 1)):
+					self.interface[button] = 1
+					change_in_interface = 1
+			if(change_in_interface):
+				self._systeminfoBroadcast()			
+				
 		
-			self.interface["df2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
-			self.interface["df3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
-			self.interface["df4"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
-			self.interface_resource.release()
+#			self.interface_resource.acquire()
+#			self.interface["uf1"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+#			self.interface["uf2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
+#			self.interface["uf3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
+		
+#			self.interface["df2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
+#			self.interface["df3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
+#			self.interface["df4"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
+#			self.interface_resource.release()
 
 			self.system_info_resource.acquire()
 			self.system_info[self.myIP]["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
@@ -597,7 +616,7 @@ def main():
 	elevator1.thread_interfaceM.start()
 	elevator1.thread_interfaceU.start()
 	elevator1.thread_interfaceB.start()
-	elevator1.thread_systeminfoB.start()
+#	elevator1.thread_systeminfoB.start()
 	elevator1.thread_positionM.start()
 	elevator1.thread_internalE.start()
 	elevator1.thread_externalE.start()	
@@ -617,7 +636,7 @@ def main():
 	elevator1.thread_interfaceM.join()
 	elevator1.thread_interfaceU.join()
 	elevator1.thread_interfaceB.join()
-	elevator1.thread_systeminfoB.join()
+#	elevator1.thread_systeminfoB.join()
 	elevator1.thread_positionM.join()
 	elevator1.thread_internalE.join()
 	elevator1.thread_externalE.join()
