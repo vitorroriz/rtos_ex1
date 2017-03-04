@@ -115,7 +115,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierarchy in the system
-		self.hierarchy = {"129.241.187.38" : 0, "129.241.187.48" : 1, "129.241.187.46" : 2}
+		self.hierarchy = {"129.241.187.48" : 0, "129.241.187.46" : 1}
 	#	self.hierarchy = {"129.241.187.153" : 0}
 
 
