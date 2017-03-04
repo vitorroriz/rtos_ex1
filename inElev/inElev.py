@@ -5,6 +5,7 @@ import struct
 import threading
 import pickle
 import mutex
+import datetime
 from ctypes import cdll
 
 #Importing project modules
@@ -100,13 +101,13 @@ class Elevator(object):
 
 		#setting up the reply message and sendint it
 		m_type = "dOa_r"
-
-		self.net_client.sendto(addr[0], m_type, "")
-
+		addr_to_reply = (addr[0], self.serverport) 
+		self.net_client.sendto(addr_to_reply, m_type,"")
+		print "SLAVE: Master asked if I'm alive and I replied at " + str(datetime.datetime.now()) + "to " + str(addr)
 
 	def _handler_deadOa_reply(self,data_in, addr):
 		self.control_info[addr[0]]["LRT"] = time.time()
-		self._update_control_info(addr[0], None, None, self.control_info[addr[0]]["LRT"])
+		self._update_control_info(addr[0], None, None, self.control_info[addr[0]]["LRT"], None)
 
 	def _handler_switchmaster(self, data_in, addr):
 		print "Switch master handler"
@@ -163,11 +164,11 @@ class Elevator(object):
 		self.myIP = self.net_server.getmyip()
 
 		#Flag for slave1 monitor if the master is alive
-		self.masterALive = 1
+		self.masterAlive = 1
 		#Tolerance in seconds to receive a question from master
-		self.masterWatcher_tolerance = 5
+		self.masterWatcher_tolerance = 10
 		#Tolerance in seconds to the master receive a reply of dead or alive question from slave
-		self.dead_or_alive_time_tolerance = 5
+		self.dead_or_alive_time_tolerance = 10
 		
 
 		#Collection current external requests in the system for each floor
@@ -388,7 +389,7 @@ class Elevator(object):
 			self.open_door(3)
 
 			self.control_info[self.myIP]["ex_destin"] = -1
-			self._update_control_info(self.myIP, -1, None, None)
+			self._update_control_info(self.myIP, -1, None, None, None)
 
 					
 			
@@ -420,7 +421,7 @@ class Elevator(object):
 		
 	
 		self.control_info[self.myIP]["ex_destin"] = -1
-		self._update_control_info(self.myIP, -1, None, None)
+		self._update_control_info(self.myIP, -1, None, None, None)
 
 
 		
@@ -478,7 +479,7 @@ class Elevator(object):
 
 						if destin != -1:
 							self.control_info[elevator_IP]["ex_destin"] = destin
-							self._update_control_info(elevator_IP, destin, None, None)						
+							self._update_control_info(elevator_IP, destin, None, None, None)						
 							if (elevator_IP == self.myIP):
 								print "MASTER: Sending a thread to handle my movement"
 								#self._go_to_destin_e(destin)
@@ -515,13 +516,16 @@ class Elevator(object):
 	def _masterWatcher(self):
 		while True:
 			if self.control_info[self.myIP]["M/MW/S"] == 1:
+				print "MASTERWatcher: masterAlive = " + str(self.masterAlive) + "at " + str(datetime.datetime.now())
 				#I am the master watcher!	
-				if self.masterALive != 1:
+				if self.masterAlive != 1:
 					self._switchmaster()
 				else:
-					self.masterALive = 0
-
-		sys.sleep(masterWatcher_tolerance)
+					self.masterAlive = 0
+				
+			time.sleep(self.masterWatcher_tolerance)
+		
+		
 
 	def _switchmaster(self):
 		#I am the new master, muuuuuhahahaha!!!!!
@@ -560,20 +564,21 @@ class Elevator(object):
 				number_of_dead_elevators = 0
 				current_time = time.time()
 				for elevator in self.hierarchy:
-					if(int(current_time - self.control_info[elevator]["LRT"]) > self.dead_or_alive_time_tolerance):
-						#declare elevator as dead
-						self.control_info[elevator]["dOa"] = 0
-						#release its ex_destin field, so we can attend a possible external destin the elevator was going before
-						self.control_info[elevator]["ex_destin"] = -1 
-						#broadcasting the new ex_destin (-1) and the new dOa value to update the control_info
-						self._update_control_info(elevator, -1, 0, None, None) #broadcas
-						#increasing the counter of dead elevators
-						number_of_dead_elevators = number_of_dead_elevators + 1
-						#if the master thinks that everybody is dead, the master is disconnected
-						if number_of_dead_elevators == (self.number_of_elevators - 1): 
-							self.control_info[self.myIP]["M/MW/S"] = 2
-							print "MASTER: Nobody is replying, I'm probably disconnected"
-							print "MASTER: Becoming a Slave!" 
+					if (elevator != self.myIP):
+						if(int(current_time - self.control_info[elevator]["LRT"]) > self.dead_or_alive_time_tolerance):
+							#declare elevator as dead
+							self.control_info[elevator]["dOa"] = 0
+							#release its ex_destin field, so we can attend a possible external destin the elevator was going before
+							self.control_info[elevator]["ex_destin"] = -1 
+							#broadcasting the new ex_destin (-1) and the new dOa value to update the control_info
+							self._update_control_info(elevator, -1, 0, None, None) #broadcast
+							#increasing the counter of dead elevators
+							number_of_dead_elevators = number_of_dead_elevators + 1
+							#if the master thinks that everybody is dead, the master is disconnected
+							if number_of_dead_elevators == (self.number_of_elevators - 1): 
+								self.control_info[self.myIP]["M/MW/S"] = 2
+								print "MASTER: Nobody is replying, I'm probably disconnected"
+								print "MASTER: Becoming a Slave!" 
 
 
 			time.sleep(1.5)
