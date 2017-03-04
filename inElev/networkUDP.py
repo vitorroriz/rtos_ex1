@@ -103,12 +103,14 @@ class networkUDP:
         data_out_packed = self._pack(message_type, data_in)
 
         try:
-            sent = sock.sendto(data_out_packed, addr)
+	    for i in range (1):
+            	sent = sock.sendto(data_out_packed, addr)
         finally:
             sock.close()
 
     def broadcast(self, message_type, data_in):
-        self.sendto(('129.241.187.255',self.serverport), message_type, data_in)               
+	for i in range (1):
+       		self.sendto(('129.241.187.255',self.serverport), message_type, data_in)               
 
     def getmyip(self):
             dummysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

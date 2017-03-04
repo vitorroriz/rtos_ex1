@@ -167,9 +167,9 @@ class Elevator(object):
 		#Flag for slave1 monitor if the master is alive
 		self.masterAlive = 1
 		#Tolerance in seconds to receive a question from master
-		self.masterWatcher_tolerance = 10
+		self.masterWatcher_tolerance = 5
 		#Tolerance in seconds to the master receive a reply of dead or alive question from slave
-		self.dead_or_alive_time_tolerance = 10
+		self.dead_or_alive_time_tolerance = 12
 		
 
 		#Collection current external requests in the system for each floor
@@ -193,23 +193,23 @@ class Elevator(object):
 		self._system_init()
 
 	def _interfaceBroadcast(self):
-		while True:
-			m_type =  "IU"
-			self.interface_resource.acquire()
-			self.net_client.broadcast(m_type, self.interface)
-			self.interface_resource.release()			
+#		while True:
+		m_type =  "IU"
+		self.interface_resource.acquire()
+		self.net_client.broadcast(m_type, self.interface)
+		self.interface_resource.release()			
 
-			time.sleep(0.7)
+#			time.sleep(0.7)
 
 	def _systeminfoBroadcast(self):
-		#while True:
+		while True:
 			m_type = "SU"
 			self.system_info_resource.acquire()
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 			self.system_info_resource.release()
-#			print self.system_info[self.myIP]["busy"]
+			print self.system_info[self.myIP]["busy"]
 
-		#	time.sleep(0.01)
+			time.sleep(0.01)
 				
 
 	def interfaceMonitor(self):
@@ -231,7 +231,7 @@ class Elevator(object):
 					self.interface[button] = 1
 					change_in_interface = 1
 			if(change_in_interface):
-				self._systeminfoBroadcast()			
+				self._interfaceBroadcast()			
 				
 		
 #			self.interface_resource.acquire()
@@ -615,8 +615,8 @@ def main():
 	
 	elevator1.thread_interfaceM.start()
 	elevator1.thread_interfaceU.start()
-	elevator1.thread_interfaceB.start()
-#	elevator1.thread_systeminfoB.start()
+#	elevator1.thread_interfaceB.start()
+	elevator1.thread_systeminfoB.start()
 	elevator1.thread_positionM.start()
 	elevator1.thread_internalE.start()
 	elevator1.thread_externalE.start()	
@@ -635,8 +635,8 @@ def main():
 
 	elevator1.thread_interfaceM.join()
 	elevator1.thread_interfaceU.join()
-	elevator1.thread_interfaceB.join()
-#	elevator1.thread_systeminfoB.join()
+#	elevator1.thread_interfaceB.join()
+	elevator1.thread_systeminfoB.join()
 	elevator1.thread_positionM.join()
 	elevator1.thread_internalE.join()
 	elevator1.thread_externalE.join()
