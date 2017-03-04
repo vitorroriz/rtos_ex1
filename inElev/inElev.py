@@ -46,9 +46,9 @@ class Elevator(object):
 		elevator_IP  = data_in["elevator_IP"]
 		ex_destin = data_in["ex_destin"]
 
-		self.system_info_resource.acquire()
-		self.system_info[elevator_IP]["ex_destin"] = ex_destin
-		self.system_info_resource.release()
+
+		self.control_info[elevator_IP]["ex_destin"] = ex_destin
+	
 
 	def _handler_interface_update(self,data_in, addr):
 
@@ -100,8 +100,10 @@ class Elevator(object):
 		print ""
 
 	def _handler_deadOa_reply(self,data_in, addr):
-		print "Dear or alive reply handler"
-		print ""
+		self.system_info[addr]["dOa"] = 1
+
+
+
 
 	def _handler_switchmaster(self, data_in, addr):
 		print "Switch master handler"
@@ -117,7 +119,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierarchy in the system
-		self.hierarchy = {"129.241.187.38" : 0, "129.241.187.48" : 1, "129.241.187.46" : 2}
+		self.hierarchy = {"129.241.187.48" : 1 ,"129.241.187.46" : 0} #"129.241.187.38" : 0, 
 	#	self.hierarchy = {"129.241.187.153" : 0}
 
 
@@ -127,7 +129,10 @@ class Elevator(object):
 		self.system_info = {}
 		for i in self.hierarchy.keys():
 			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, 
-									"M/MW/S" : self.hierarchy[i], "lastF" : 0, "lastDir" : 0, "busy" : 0, "ex_destin" : -1}
+									"M/MW/S" : self.hierarchy[i], "lastF" : 0, "lastDir" : 0,
+									 "busy" : 0, "ex_destin" : -1, "dOa" : 1, "LRT" : time.time()}
+
+			self.control_info[i] = {"ex_destin" : -1, "dOa" : 1, "LRT" : time.time()}
 
 		self.system_info_resource = threading.Lock()
 		self.interface_resource = threading.Lock()
@@ -153,7 +158,7 @@ class Elevator(object):
 		self.driver.elev_init()
 		
 		self.myIP = self.net_server.getmyip()
-		self.master_or_slaven = self.system_info[self.myIP]["M/MW/S"]
+
 
 		#Flag for slave1 monitor if the master is alive
 		self.masterALive = 1
@@ -166,7 +171,7 @@ class Elevator(object):
 		
 
 		#Creating a Brain object
-		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy)
+		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy, self.control_info)
 		
 		self.thread_interfaceM  = threading.Thread(target = self.interfaceMonitor)
 		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
@@ -178,6 +183,7 @@ class Elevator(object):
 		#Sending the lift to a known position (default = 0)
 		self._system_init()
 
+
 	def _interfaceBroadcast(self):
 		while True:
 			m_type =  "IU"
@@ -185,7 +191,7 @@ class Elevator(object):
 			self.net_client.broadcast(m_type, self.interface)
 			self.interface_resource.release()			
 
-			time.sleep(0.7)
+			time.sleep(0.1)
 
 	def _systeminfoBroadcast(self):
 		while True:
@@ -437,7 +443,7 @@ class Elevator(object):
 				#print self.system_info
 				if destin != -1:
 					self._go_to_destin(destin)
-		#	print "Destin: " + str(destin)
+			print "Destin: " + str(destin)
 			time.sleep(1)
 			#print self.interface
 			#print self.myIP + " ---> busy = " + str(self.system_info[self.myIP]["busy"])
@@ -455,7 +461,7 @@ class Elevator(object):
 						print "MASTER sending : " + elevator_IP + " to floor " + str(destin+1)  
 						
 						if destin != -1:
-							self.system_info[elevator_IP]["ex_destin"] = destin
+							self.control_info[elevator_IP]["ex_destin"] = destin
 							self._update_destin(elevator_IP, destin)						
 							if (elevator_IP == self.myIP):
 								print "Sending a thread to handle the movement"
@@ -473,7 +479,7 @@ class Elevator(object):
 					else:
 						#if the elevator is busy, dont do nothing, just remeber to release the resource
 						self.system_info_resource.release()
-					time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
+				time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
 #			print "Destin: " + str(destin)
 
 		
@@ -484,6 +490,22 @@ class Elevator(object):
 			self.driver.elev_set_motor_direction(-1)
 			floor = self.driver.elev_get_floor_sensor_signal()
 		self.driver.elev_set_motor_direction(0)
+
+		if self.system_info[self.myIP]["M/MW/S"] == 0:
+			#I am the master muuuhahahahha
+			for elevator in self.hierarchy:
+				self.system_info[elevator]["LRT"] = time.time()
+
+
+# ------------------- FAULT HANDLER FUNCTIONS: ----------------------------------------
+	def _dead_or_alive_question():
+		while True:
+			if (self.system_info[self.myIP]["M/MW/S"] == 0):
+				#if this is true, I AM THE MASTER!! Muhahahaha
+				m_type = "dOa_q"
+				self.net_client.broadcast(m_type)
+			time.sleep(1.5)
+			
 
 	def _masterWatcher(self):
 		while True:
@@ -503,7 +525,7 @@ def main():
 	elevator1 = Elevator(serverport = 51012)
 	print "Hello, my ip is:"
 	print elevator1.net_server.getmyip()
-	print "Master = 1 Slave = 0 ---> master_or_slaven = " + str(elevator1.master_or_slaven)
+
 	
 	thread_server = threading.Thread(target = elevator1.net_server.listen)
 	

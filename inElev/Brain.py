@@ -1,10 +1,11 @@
 class Brain(object):
 	"""docstring for Brain"""
-	def __init__(self, system_info, externals, myIP, hierarchy):
+	def __init__(self, system_info, externals, myIP, hierarchy, control_info):
 		self.system_info = system_info
 		self.system_info_v = system_info[myIP]
 		self.externals = externals
 		self.hierarchy = hierarchy
+		self.control_info = control_info
 
 	def internal_next_destin(self):
 		#saving the status of the internal buttons for a specific elevator
@@ -52,11 +53,11 @@ class Brain(object):
 #		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
 #		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
 		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
-		
+
 		distances = {}
-		print "BRAIN: Ex requests = " + str(self.externals)
+
 		for button in self.externals.keys():
-			if  ((self.externals[button] != 0) and (self._is_destin_valid(button, elevator_IP))):
+			if  (self.externals[button] != 0) and (self._is_destin_valid(button, elevator_IP)):
 				distance_raw = abs(i_dic_ext[button] - self.system_info[elevator_IP]["lastF"])
 				distances[button] = distance_raw
 		try:
@@ -73,11 +74,11 @@ class Brain(object):
 
 	def _is_destin_valid(self, button, elevator_IP):
 		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
-		
+
 		for elevator in self.hierarchy.keys():
-			print "ex_destin of " + elevator + " is " + str(self.system_info[elevator]["ex_destin"])
-			if self.system_info[elevator]["ex_destin"] == i_dic_ext[button]:
-				print "BRAIN: returning 0 for button " + button + " elevator: " + elevator_IP + " because of " + elevator 			
+			print "ex_destin of " + elevator + " is " + str(self.control_info[elevator]["ex_destin"])
+			if self.control_info[elevator]["ex_destin"] == i_dic_ext[button]:
+				print "BRAIN: returning 0 for button " + button + " elevator: " + elevator_IP + " because of " + elevator 
 				return 0
 	
 		return 1
