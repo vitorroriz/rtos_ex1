@@ -153,8 +153,8 @@ class Elevator(object):
 		self.driver = cdll.LoadLibrary('./libelev.so')
 		self.driver.elev_init()
 		
+		#getting my IP
 		self.myIP = self.net_server.getmyip()
-		self.master_or_slaven = self.system_info[self.myIP]["M/MW/S"]
 
 		#Flag for slave1 monitor if the master is alive
 		self.masterALive = 1
@@ -368,10 +368,10 @@ class Elevator(object):
 			self.net_client.broadcast("ERD",self.interface)
 			self.interface_resource.release()
 
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP]["ex_destin"] = -1
+			
+			self.control_info[self.myIP]["ex_destin"] = -1
 			self._update_destin(self.myIP, -1)
-			self.system_info_resource.release()
+
 					
 			self.open_door(3)
 			
@@ -397,10 +397,10 @@ class Elevator(object):
 		self.interface_resource.release()
 
 
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["ex_destin"] = -1
+	
+		self.control_info[self.myIP]["ex_destin"] = -1
 		self._update_destin(self.myIP, -1)
-		self.system_info_resource.release()
+
 		#		Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
 		
@@ -446,20 +446,23 @@ class Elevator(object):
 	def external_exe(self):
 		while True:
 			#checking if i am the master
-			if (self.master_or_slaven == 0):
+			if (self.system_info[self.myIP]["M/MW/S"] == 0):
 				for elevator_IP in self.hierarchy.keys():
 					self.system_info_resource.acquire()
 					if self.system_info[elevator_IP]["busy"] != 1:
 						#print "Entrying the for for ip " + elevator_IP + " busy = " + str(self.system_info[elevator_IP]["busy"])
 						self.system_info_resource.release()
 						destin = self.brain.external_next_destin(elevator_IP)
-						print "MASTER sending : " + elevator_IP + " to floor " + str(destin+1)  
-						
+						if destin != -1:
+							print "MASTER: sending : " + elevator_IP + " to floor " + str(destin+1)  
+						else:
+							print "MASTER: elevator  " + elevator_IP + " is IDLE" 
+
 						if destin != -1:
 							self.control_info[elevator_IP]["ex_destin"] = destin
 							self._update_destin(elevator_IP, destin)						
 							if (elevator_IP == self.myIP):
-								print "Sending a thread to handle the movement"
+								print "MASTER: Sending a thread to handle my movement"
 								#self._go_to_destin_e(destin)
 								self.system_info_resource.acquire()
 								self.system_info[self.myIP]["busy"] = 1
@@ -509,7 +512,6 @@ def main():
 	elevator1 = Elevator(serverport = 51012)
 	print "Hello, my ip is:"
 	print elevator1.net_server.getmyip()
-	print "Master = 1 Slave = 0 ---> master_or_slaven = " + str(elevator1.master_or_slaven)
 	
 	thread_server = threading.Thread(target = elevator1.net_server.listen)
 	
@@ -541,4 +543,4 @@ def main():
 	thread_server.join()
 
 if __name__ == '__main__':
-main()
+	main()
