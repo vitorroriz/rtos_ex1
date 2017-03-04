@@ -218,11 +218,11 @@ class Elevator(object):
 			
 
 			uf1 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			uf2 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			uf3 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			df2 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			df3 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			df4 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
+			uf2 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
+			uf3 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
+			df2 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
+			df3 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
+			df4 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)
 
 			current_reading = {"uf1" : uf1, "uf2" : uf2, "uf3" : uf3, "df2" : df2, "df3" : df3, "df4" : df4}
 			change_in_interface = 0
