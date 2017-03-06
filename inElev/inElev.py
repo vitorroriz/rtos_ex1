@@ -28,7 +28,7 @@ BUTTON_COMMAND = 2
 #--------------------------- end of definitions -----------------------
 
 class Elevator(object):
-	"""Class that represents the internals of the Elevator"""
+	"""Class that represents an Elevator"""
 
 	# -------- Handlers to received packets ----------------------------
 	def _handler_master_order(self,data_in, addr):
@@ -102,10 +102,11 @@ class Elevator(object):
 		print "SLAVE: Master asked if I'm alive and I replied at " + str(datetime.datetime.now()) + " to " + str(addr_to_reply)
 
 	def _handler_deadOa_reply(self,data_in, addr):
-
+		self.control_info[addr[0]]["dOa"] = 1
 		self.control_info[addr[0]]["LRT"] = time.time()
 		self._update_control_info(addr[0], None, None, self.control_info[addr[0]]["LRT"], None)
 		print "MASTER: elevator " + addr[0] + " replied my question at " + str(self.control_info[addr[0]]["LRT"])
+
 	def _handler_switchmaster(self, data_in, addr):
 		print "Switch master handler"
 		self.hierarchy["master"] = self.hierarchy["slave1"]
@@ -114,13 +115,23 @@ class Elevator(object):
 
 		print "Handler order"
 
+	def _handler_request_interface(self, data_in, addr):
+		#Elevator informs his current values for interface (would be usually asked to the master)
+		addr_to_reply = (addr[0], self.serverport)
+		m_type = "IU"
+		self.net_client.sendto(addr_to_reply, m_type, self.interface)
+
+	def _handler_request_control_info(self, data_in, addr):
+		m_type = "DU"
+		msg = {"elevator_IP" : self.myIP, "ex_destin": self.control_info[self.myIP]["ex_destin"], "dOa" : self.control_info[self.myIP]["dOa"] , "LRT" : self.control_info[self.myIP]["LRT"], "M/MW/S" : self.control_info[self.myIP]["M/MW/S"]}
+		self.net_client.sendto((addr[0],self.serverport),m_type, msg)
     #-----------end of handlers definition-------------------------------
 
 	def __init__(self, serverport = 20023):		
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierarchy in the system
-		self.hierarchy = {"129.241.187.48" : 0, "129.241.187.38" : 1, "129.241.187.144" : 2}
+		self.hierarchy = {"129.241.187.46" : 0 }#, "129.241.187.38" : 1, "129.241.187.144" : 2}
 	#	self.hierarchy = {"129.241.187.153" : 0}
 
 		#Number of elevators in the system
@@ -134,17 +145,23 @@ class Elevator(object):
 			
 			self.control_info[i] = {"ex_destin" : -1, "dOa" : 1, "LRT" : time.time(), "M/MW/S" : self.hierarchy[i]}
 
+		#mutex to control access to the system info table
 		self.system_info_resource = threading.Lock()
+		#mutex to control access to the interface 	
 		self.interface_resource = threading.Lock()
+		#mutex to control access to the motor
+		self.motor_resource = threading.Lock()
 
 		#Dictionary for registering the handlers for each kind of message received
-		self.handler_dic = {"MO" : self._handler_master_order,  
+		self.handler_dic = {"MO"    : self._handler_master_order,  
 							"dOa_q" : self._handler_deadOa_question, 
 							"dOa_r" : self._handler_deadOa_reply,
-							"IU" : self._handler_interface_update,
-							"SU" : self._handler_system_info_update,
-							"ERD" : self._handler_external_request_done,
-							"DU" : self._handler_update_control_info}
+							"IU"    : self._handler_interface_update,
+							"SU"    : self._handler_system_info_update,
+							"ERD"   : self._handler_external_request_done,
+							"DU"    : self._handler_update_control_info
+							"RI"    : self._handler_request_interface,
+							"RC"	: self._handler_request_control_info}
 
 		#Creating a network object to receive messages
 		self.net_server = networkUDP(serverport, serverhost = None, handlers_list = self.handler_dic)
@@ -276,6 +293,37 @@ class Elevator(object):
 			self.system_info_resource.release()
 			time.sleep(0.1)
 
+	def _request_interface(self, elevator_IP):
+		self.net_client.sendto((elevator_IP, self.serverport), "RI", "")
+
+	def _request_control_info(self):
+		self.net_client.broadcast("RC","")
+
+	def _set_busy_state(self, busy_state):
+		if (busy_state == 0):
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP]["busy"] = 0
+			self.system_info_resource.release()
+			#releasing the control of the motor
+			self.motor_resource.release() 
+		else:
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP]["busy"] = 1
+			self.system_info_resource.release()
+			#taking the control of the motor
+			self.motor_resource.acquire() 
+
+	def _clear_internal_request(self, destination):
+		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP][translation[destination]] = 0
+		self.system_info_resource.release()
+
+
+	def _clear_external_request(self, destination):
+		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
+		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
+
 	def positionMonitor(self):
 		while True:
 			floor = self.driver.elev_get_floor_sensor_signal()
@@ -284,27 +332,6 @@ class Elevator(object):
 				self.system_info[self.myIP]["lastF"] = floor
 				self.system_info_resource.release()
 			time.sleep(0.01) #100 times per second
-
-	def _set_busy_state(self, int busy_state):
-		if (!busy_state):
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP]["busy"] = 0
-			self.system_info_resource.release()
-		else: 
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP]["busy"] = 0
-			self.system_info_resource.release()
-
-	def _clear_internal_request(self, destination):
-		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP][translation[destination]] = 0
-		self.interface_resource.acquire()
-
-
-	def _clear_external_request(self, destination):
-		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
-		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
 
 	def _go_to_destin(self, destination_o):
 		#PRIVATE METHOD, it is not in the interface
@@ -335,7 +362,7 @@ class Elevator(object):
 		self.system_info_resource.release()
 
 		#Keep the elevator moving till it arrives in its destination
-		while(self.system_info[self.myIP]["lastF"] != destination):
+		while(self.driver.elev_get_floor_sensor_signal() != destination):
 			#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
 			destination = self.brain.internal_next_destin()
 			if destination == -1:
@@ -346,6 +373,7 @@ class Elevator(object):
 
 		self._clear_internal_request(destination)
 
+		self.interface_resource.acquire()
 
 		if((direction == 1)):
 			if(destination == 3):
@@ -360,14 +388,12 @@ class Elevator(object):
 			else:
 				self.interface[translation_d[destination]] = 0 
 		self.net_client.broadcast("ERD",self.interface)
+
 		self.interface_resource.release()
-		self.system_info_resource.release()
 #		Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
 		#The elevator is not busy anymore (just in case the caller forget do it in the return)
 		self._set_busy_state(0)
-
-
 
 	def _go_to_destin_e(self, destination_o):
 		#Elevator is busy
@@ -389,13 +415,11 @@ class Elevator(object):
 			self.interface[translation_d[destination]] = 0
 			self.net_client.broadcast("ERD",self.interface)
 			self.interface_resource.release()
-
 			#Open the door for 3 seconds to the passagers to enter
 			self.open_door(3)
 
 			self.control_info[self.myIP]["ex_destin"] = -1
 			self._update_control_info(self.myIP, -1, None, None, None)
-
 			#Elevator is not busy anymore		
 			self._set_busy_state(0)
 			return
@@ -404,7 +428,7 @@ class Elevator(object):
 		self.system_info[self.myIP]["lastDir"] = direction
 		self.system_info_resource.release()
 
-		while(self.system_info[self.myIP]["lastF"] != destination):
+		while(self.driver.elev_get_floor_sensor_signal() != destination):
 			#destination = self.brain.external_next_destin(self.myIP)
 			self.driver.elev_set_motor_direction(direction)
 
@@ -427,7 +451,12 @@ class Elevator(object):
 		self._set_busy_state(0)
 		print "Movement done!"
 
-
+		
+	def _get_master(self):
+		#returns the IP of the current master of the system
+		for elevator in self.hierarchy:
+			if (self.control_info[elevator]["M/MW/S"]) == 0:
+				return = elevator
 
 	def open_door(self, time_s):
 		self.driver.elev_set_door_open_lamp(1)
@@ -449,11 +478,13 @@ class Elevator(object):
 		
 	def internal_exe(self):
 		while True:
-			if self.system_info[self.myIP]["busy"] != -1:
+			if self.system_info[self.myIP]["busy"] == 0:
 				destin = self.brain.internal_next_destin()
 				#print self.system_info
 				if destin != -1:
 					self._go_to_destin(destin)
+				else:
+					self._clear_internal_request(self.system_info[self.myIP]["lastF"])
 		#	print "Destin: " + str(destin)
 			time.sleep(1)
 			#print self.interface
@@ -465,7 +496,7 @@ class Elevator(object):
 			if (self.control_info[self.myIP]["M/MW/S"] == 0):
 				for elevator_IP in self.hierarchy.keys():
 					self.system_info_resource.acquire()
-					if ( (self.system_info[elevator_IP]["busy"] != 1) and (self.control_info[elevator_IP]["ex_destin"] == -1) and (self.control_info[elevator_IP]["dOa"] == 1)):
+					if ( (self.system_info[elevator_IP]["busy"] == 0) and (self.control_info[elevator_IP]["ex_destin"] == -1) and (self.control_info[elevator_IP]["dOa"] == 1)):
 						#print "Entrying the for for ip " + elevator_IP + " busy = " + str(self.system_info[elevator_IP]["busy"])
 						self.system_info_resource.release()
 						destin = self.brain.external_next_destin(elevator_IP)
@@ -522,7 +553,7 @@ class Elevator(object):
 				
 			time.sleep(self.masterWatcher_tolerance)
 		
-		
+
 
 	def _switchmaster(self):
 		#I am the new master, muuuuuhahahaha!!!!!
@@ -537,14 +568,9 @@ class Elevator(object):
 		except:
 			print "NEW MASTER: I have no slaves to watch me, sorry!"
 
-		old_master = ""
-		#getting the IP of the old master to use later in this current function
-		for elevator in self.hierarchy:
-			if (self.control_info[elevator]["M/MW/S"]) == 0:
-				old_master = elevator
-				break
-
-
+		#getting the IP of the old master to use later in this current function	
+		old_master = self._get_master()
+		
 		#telling everybody I am the new master OF THE UNIVERSE
 		self._update_control_info(self.myIP, None, None, None, 0)
 		#telling everybody that the old master is a poor slave now >:D
@@ -597,7 +623,7 @@ def main():
 	elevator1.thread_positionM.start()
 	elevator1.thread_internalE.start()
 	elevator1.thread_externalE.start()	
-	elevator1.thread_dOa_M.start()
+#	elevator1.thread_dOa_M.start()
 	elevator1.thread_masterW.start()
 
 
