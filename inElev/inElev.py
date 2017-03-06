@@ -159,7 +159,7 @@ class Elevator(object):
 							"IU"    : self._handler_interface_update,
 							"SU"    : self._handler_system_info_update,
 							"ERD"   : self._handler_external_request_done,
-							"DU"    : self._handler_update_control_info
+							"DU"    : self._handler_update_control_info,
 							"RI"    : self._handler_request_interface,
 							"RC"	: self._handler_request_control_info}
 
@@ -428,10 +428,17 @@ class Elevator(object):
 		self.system_info[self.myIP]["lastDir"] = direction
 		self.system_info_resource.release()
 
+		time_init = time.time()
 		while(self.driver.elev_get_floor_sensor_signal() != destination):
 			#destination = self.brain.external_next_destin(self.myIP)
 			self.driver.elev_set_motor_direction(direction)
-
+			time_now = time.time()
+			#If the movement takes more than 10 seconds, stop movement, declare elevator as dead, and release its ex_destin to be taken by other elevator
+			if((int)(time_now - time_init) > 10):
+				self._update_control_info(self.myIP, -1, 0, None, None)
+				self.driver.elev_set_motor_direction(0)
+				print "FAULT: Ive got stucked and I stopped!!!!"
+				return 	
 
 		self.driver.elev_set_motor_direction(0)
 		self.interface_resource.acquire()
@@ -456,7 +463,7 @@ class Elevator(object):
 		#returns the IP of the current master of the system
 		for elevator in self.hierarchy:
 			if (self.control_info[elevator]["M/MW/S"]) == 0:
-				return = elevator
+				return elevator
 
 	def open_door(self, time_s):
 		self.driver.elev_set_door_open_lamp(1)
