@@ -103,7 +103,7 @@ class networkUDP:
         data_out_packed = self._pack(message_type, data_in)
 
         try:
-	    for i in range (3):
+	       for i in range (3):
             	sent = sock.sendto(data_out_packed, addr)
         finally:
             sock.close()

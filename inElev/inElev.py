@@ -32,16 +32,15 @@ class Elevator(object):
 
 	# -------- Handlers to received packets ----------------------------
 	def _handler_master_order(self,data_in, addr):
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["busy"] = 1
-		self.system_info_resource.release()
-
+		#Elevator is busy
+		self._set_busy_state(1)
+		#Looking the floor the master told the elevator to go
 		floor = data_in["floor"]
+		#Sending the elevator to the destin required
 		self._go_to_destin_e(floor)
-		self.system_info_resource.acquire()
-		print "Got a master order..."
-		self.system_info[self.myIP]["busy"] = 0
-		self.system_info_resource.release()
+		#Elevator is not busy anymore
+		self._set_busy_state(0)
+		print "SLAVE: Got a master order..."
 
 	def _handler_update_control_info(self,data_in,addr):
 		elevator_IP  = data_in["elevator_IP"]
@@ -60,12 +59,10 @@ class Elevator(object):
 			self.control_info[elevator_IP]["M/MW/S"] = MMWS
 
 	def _handler_interface_update(self,data_in, addr):
-
 		self.interface_resource.acquire()
 		self.interface["uf1"] |= data_in["uf1"]
 		self.interface["uf2"] |= data_in["uf2"]
 		self.interface["uf3"] |= data_in["uf3"]
-
 		self.interface["df2"] |= data_in["df2"]
 		self.interface["df3"] |= data_in["df3"]
 		self.interface["df4"] |= data_in["df4"]	
@@ -98,7 +95,6 @@ class Elevator(object):
 	def _handler_deadOa_question(self, data_in, addr):
 		#updating the status of masterAlive
 		self.masterAlive = 1
-
 		#setting up the reply message and sendint it
 		m_type = "dOa_r"
 		addr_to_reply = (addr[0], self.serverport) 
@@ -160,19 +156,17 @@ class Elevator(object):
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev.so')
 		self.driver.elev_init()
-		
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
-
-		#Flag for slave1 monitor if the master is alive
+		#Flag that indicates othat the master is alive or not (used by master watcher)
 		self.masterAlive = 1
-		#Tolerance in seconds to receive a question from master
+		#Tolerance in seconds to receive a dead or a alive question (dOa_q) from master
 		self.masterWatcher_tolerance = 5
-		#Tolerance in seconds to the master receive a reply of dead or alive question from slave
+		#Tolerance in seconds to the master receive a reply of dead or alive question from slave (dOa_r)
 		self.dead_or_alive_time_tolerance = 12
 		
 
-		#Collection current external requests in the system for each floor
+		#Current external requests in the system for each floor
 		self.interface = {"uf1" : 0, "uf2" : 0, "uf3" : 0, "df2" : 0, "df3" : 0, "df4" : 0}
 		
 
@@ -215,8 +209,6 @@ class Elevator(object):
 	def interfaceMonitor(self):
 		while True:
 
-			
-
 			uf1 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
 			uf2 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
 			uf3 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
@@ -224,25 +216,33 @@ class Elevator(object):
 			df3 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
 			df4 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)
 
-			current_reading = {"uf1" : uf1, "uf2" : uf2, "uf3" : uf3, "df2" : df2, "df3" : df3, "df4" : df4}
+			current_reading_interface = {"uf1" : uf1, "uf2" : uf2, "uf3" : uf3, "df2" : df2, "df3" : df3, "df4" : df4}
 			change_in_interface = 0
 			for button in self.interface.keys():
-				if ((self.interface[button] == 0) and (current_reading[button] == 1)):
+				if ((self.interface[button] == 0) and (current_reading_interface[button] == 1)):
 					self.interface[button] = 1
 					change_in_interface = 1
 			if(change_in_interface):
 				self._interfaceBroadcast()			
 				
-		
-#			self.interface_resource.acquire()
-#			self.interface["uf1"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-#			self.interface["uf2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
-#			self.interface["uf3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
-		
-#			self.interface["df2"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
-#			self.interface["df3"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
-#			self.interface["df4"] |= self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)	
-#			self.interface_resource.release()
+
+			# cf1  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
+			# cf2  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
+			# cf3  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
+			# cf4  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
+			# stop = self.driver.elev_get_stop_signal()
+
+			# current_reading_commands = {"cf1" : cf1,  "cf2" : cf2, "cf3" : cf3, "cf4" : cf4, "stop" : stop}
+			# change_in_commands = 0
+
+			# for command in self.system_info[self.myIP].keys():
+			# 	try:
+			# 		if((self.system_info[self.myIP][command] == 0) and (current_reading_commands[command] == 1)):
+			# 			self.system_info[self.myIP][command] = 1
+			# 			change_in_commands = 1
+
+			# if(change_in_commands):
+			# 	self._systeminfoBroadcast()
 
 			self.system_info_resource.acquire()
 			self.system_info[self.myIP]["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
@@ -285,45 +285,38 @@ class Elevator(object):
 				self.system_info_resource.release()
 			time.sleep(0.01) #100 times per second
 
+	def _set_busy_state(self, int busy_state):
+		if (!busy_state):
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP]["busy"] = 0
+			self.system_info_resource.release()
+		else: 
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP]["busy"] = 0
+			self.system_info_resource.release()
+
+	def _clear_internal_request(self, destination):
+		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
+		self.system_info_resource.acquire()
+		self.system_info[self.myIP][translation[destination]] = 0
+		self.interface_resource.acquire()
 
 
-
-
-
-#	def go_to_destin(self, destination):
-#		#Public method, it is in the class interface. Sends the elevator to a specific floor.
-#		current = self.system_info[self.myIP]["lastF"]
-#		distance = destination - current
-#		if (distance > 0):
-#			direction = 1
-#		elif(distance < 0):
-#			direction = -1
-#		else:
-#			self.system_info_resource.acquire()
-#			self.system_info[self.myIP][translation[destination]] = 0
-#			self.system_info_resource.release()
-#			return
-
-#		while(self.system_info[self.myIP]["lastF"] != destination):
-#			self.driver.elev_set_motor_direction(direction)
-#		self.driver.elev_set_motor_direction(0)
-
-
-
-
+	def _clear_external_request(self, destination):
+		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
+		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
 
 	def _go_to_destin(self, destination_o):
 		#PRIVATE METHOD, it is not in the interface
 		#Method to be used to execute internal orders
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["busy"] = 1
-		self.system_info_resource.release()
+
+		#Setting the elevator busy (just in case the caller didn't do it)
+		self._set_busy_state(1)
 
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
 		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
 
-#		print "GOING TO DESTINATION " + str(destination)
 		destination = destination_o
 		current = self.system_info[self.myIP]["lastF"]
 		distance = destination - current
@@ -332,33 +325,28 @@ class Elevator(object):
 		elif(distance < 0):
 			direction = -1
 		else:
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP][translation[destination]] = 0
-			self.system_info_resource.release()
+			self._clear_internal_request(destination)
+			#The elevator is not busy anymore (just in case the caller forget do it in the return)
+			self._set_busy_state(0)
 			return
 
 		self.system_info_resource.acquire()
 		self.system_info[self.myIP]["lastDir"] = direction
 		self.system_info_resource.release()
 
-		
+		#Keep the elevator moving till it arrives in its destination
 		while(self.system_info[self.myIP]["lastF"] != destination):
+			#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
 			destination = self.brain.internal_next_destin()
-
-
 			if destination == -1:
 				self.system_info[self.myIP]["lastF"] = 0
 			self.driver.elev_set_motor_direction(direction)
-			# self.system_info_resource.acquire()
-			# self.system_info[self.myIP]["lastDir"] = direction
-			# self.system_info_resource.release()
 
 		self.driver.elev_set_motor_direction(0)
 
+		self._clear_internal_request(destination)
 
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP][translation[destination]] = 0
-		self.interface_resource.acquire()
+
 		if((direction == 1)):
 			if(destination == 3):
 				self.interface[translation_d[destination]] = 0
@@ -376,21 +364,18 @@ class Elevator(object):
 		self.system_info_resource.release()
 #		Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["busy"] = 0
-		self.system_info_resource.release()
+		#The elevator is not busy anymore (just in case the caller forget do it in the return)
+		self._set_busy_state(0)
 
 
 
 	def _go_to_destin_e(self, destination_o):
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["busy"] = 1
-		self.system_info_resource.release()
+		#Elevator is busy
+		self._set_busy_state(1)
 
 		translation_d = {0: "uf1", 1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0: "uf1" , 1 : "uf2" , 2 : "uf3", 3 : "df4"}
 
-#		print "GOING TO DESTINATION " + str(destination)
 		destination = destination_o
 		current = self.system_info[self.myIP]["lastF"]
 		distance = destination - current
@@ -411,12 +396,8 @@ class Elevator(object):
 			self.control_info[self.myIP]["ex_destin"] = -1
 			self._update_control_info(self.myIP, -1, None, None, None)
 
-					
-			
-			
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP]["busy"] = 0
-			self.system_info_resource.release()
+			#Elevator is not busy anymore		
+			self._set_busy_state(0)
 			return
 
 		self.system_info_resource.acquire()
@@ -438,16 +419,12 @@ class Elevator(object):
 
 		#Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
-		
-	
+			
 		self.control_info[self.myIP]["ex_destin"] = -1
 		self._update_control_info(self.myIP, -1, None, None, None)
 
-
-		
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["busy"] = 0
-		self.system_info_resource.release()
+		#Elevator is not busy anymore 
+		self._set_busy_state(0)
 		print "Movement done!"
 
 
@@ -623,11 +600,7 @@ def main():
 	elevator1.thread_dOa_M.start()
 	elevator1.thread_masterW.start()
 
-#	while True:
-#		m_type = "request"
-#		ms = {"floor": "3", "request_n": "4", "msg":"this is my message"}
-#		elevator1.net_client.broadcast(m_type, ms)
-#		time.sleep(2)
+
 
 	thread_server.start()
 	elevator1.net_bdcast.listen()
