@@ -99,13 +99,13 @@ class Elevator(object):
 		m_type = "dOa_r"
 		addr_to_reply = (addr[0], self.serverport) 
 		self.net_client.sendto(addr_to_reply, m_type,"")
-		print "SLAVE: Master asked if I'm alive and I replied at " + str(datetime.datetime.now()) + " to " + str(addr_to_reply)
+		#print "SLAVE: Master asked if I'm alive and I replied at " + str(datetime.datetime.now()) + " to " + str(addr_to_reply)
 
 	def _handler_deadOa_reply(self,data_in, addr):
 		self.control_info[addr[0]]["dOa"] = 1
 		self.control_info[addr[0]]["LRT"] = time.time()
 		self._update_control_info(addr[0], None, None, self.control_info[addr[0]]["LRT"], None)
-		print "MASTER: elevator " + addr[0] + " replied my question at " + str(self.control_info[addr[0]]["LRT"])
+		#print "MASTER: elevator " + addr[0] + " replied my question at " + str(self.control_info[addr[0]]["LRT"])
 
 	def _handler_switchmaster(self, data_in, addr):
 		print "Switch master handler"
@@ -565,7 +565,7 @@ class Elevator(object):
 		self.thread_positionM.start()
 		self.thread_internalE.start()
 		self.thread_externalE.start()	
-	#	self.thread_dOa_M.start()
+		self.thread_dOa_M.start()
 		self.thread_masterW.start()
 		self.thread_server.start()
 		self.thread_server_bdc.start()
@@ -626,7 +626,7 @@ class Elevator(object):
 				#if this is true, I AM THE MASTER!! Muhahahaha
 				m_type = "dOa_q"
 				self.net_client.broadcast(m_type, "")
-				print "I AM MASTER (48): I HAVE SENT A QUESTION AT " + str(datetime.datetime.now())
+				#print "I AM MASTER (48): I HAVE SENT A QUESTION AT " + str(datetime.datetime.now())
 				number_of_dead_elevators = 0
 				current_time = time.time()
 				for elevator in self.hierarchy:

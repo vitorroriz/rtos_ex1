@@ -106,7 +106,7 @@ class networkUDP:
         data_out_packed = self._pack(message_type, data_in)
 
         try:
-	       for i in range (3):
+	       for i in range (2):
             	sent = sock.sendto(data_out_packed, addr)
         except:
             print "FAULT: Failed to send UDP packet due to problem in the Network."
@@ -115,7 +115,7 @@ class networkUDP:
             sock.close()
 
     def broadcast(self, message_type, data_in):
-	for i in range (3):
+	for i in range (2):
        		self.sendto(('129.241.187.255',self.serverport), message_type, data_in)               
 
     def getmyip(self):
