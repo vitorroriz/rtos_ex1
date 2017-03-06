@@ -131,7 +131,7 @@ class Elevator(object):
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierarchy in the system
-		self.hierarchy = {"129.241.187.46" : 0 }#, "129.241.187.38" : 1, "129.241.187.144" : 2}
+		self.hierarchy = {"129.241.187.155" : 0 }#, "129.241.187.38" : 1, "129.241.187.144" : 2}
 	#	self.hierarchy = {"129.241.187.153" : 0}
 
 		#Number of elevators in the system
@@ -361,6 +361,7 @@ class Elevator(object):
 		self.system_info[self.myIP]["lastDir"] = direction
 		self.system_info_resource.release()
 
+		time_init = time.time()
 		#Keep the elevator moving till it arrives in its destination
 		while(self.driver.elev_get_floor_sensor_signal() != destination):
 			#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
@@ -368,6 +369,10 @@ class Elevator(object):
 			if destination == -1:
 				self.system_info[self.myIP]["lastF"] = 0
 			self.driver.elev_set_motor_direction(direction)
+			if((int)(time.time() - time_init) > 10):
+				self.driver.elev_set_motor_direction(0)
+				print "FAULT: I've got stuck while executing an internal order"
+				return 
 
 		self.driver.elev_set_motor_direction(0)
 
@@ -437,7 +442,7 @@ class Elevator(object):
 			if((int)(time_now - time_init) > 10):
 				self._update_control_info(self.myIP, -1, 0, None, None)
 				self.driver.elev_set_motor_direction(0)
-				print "FAULT: Ive got stucked and I stopped!!!!"
+				print "FAULT: I've got stuck while executing an external order"
 				return 	
 
 		self.driver.elev_set_motor_direction(0)

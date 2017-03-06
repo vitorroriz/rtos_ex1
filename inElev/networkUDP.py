@@ -86,6 +86,9 @@ class networkUDP:
 
             except KeyboardInterrupt:
                 self.shutdown = True
+            except:
+                print "FAULT: Failed to receive UDP packet due to problem in the Network."
+                time.sleep(1)
 
         sock.close()
 
@@ -105,6 +108,9 @@ class networkUDP:
         try:
 	       for i in range (3):
             	sent = sock.sendto(data_out_packed, addr)
+        except:
+            print "FAULT: Failed to send UDP packet due to problem in the Network."
+            time.sleep(1)
         finally:
             sock.close()
 
