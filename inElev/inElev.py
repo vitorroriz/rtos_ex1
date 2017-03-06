@@ -127,13 +127,15 @@ class Elevator(object):
 		self.net_client.sendto((addr[0],self.serverport),m_type, msg)
     #-----------end of handlers definition-------------------------------
 
-	def __init__(self, serverport = 20023):		
+	def __init__(self, serverport = 20023, hierarchy = None):		
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the hierarchy in the system
-		self.hierarchy = {"129.241.187.155" : 0 }#, "129.241.187.38" : 1, "129.241.187.144" : 2}
-	#	self.hierarchy = {"129.241.187.153" : 0}
-
+		if (hierarchy == None):
+			self.hierarchy = {"129.241.187.155" : 0, "129.241.187.38" : 1, "129.241.187.144" : 2}
+		#	self.hierarchy = {"129.241.187.153" : 0}
+		else:
+			self.hierarchy = hierarchy
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.hierarchy)
 
@@ -151,7 +153,6 @@ class Elevator(object):
 		self.interface_resource = threading.Lock()
 		#mutex to control access to the motor
 		self.motor_resource = threading.Lock()
-
 		#Dictionary for registering the handlers for each kind of message received
 		self.handler_dic = {"MO"    : self._handler_master_order,  
 							"dOa_q" : self._handler_deadOa_question, 
@@ -167,7 +168,6 @@ class Elevator(object):
 		self.net_server = networkUDP(serverport, serverhost = None, handlers_list = self.handler_dic)
 		#Creating a network object to broadcast
 		self.net_bdcast = networkUDP(serverport, serverhost = self.broadcastaddr, handlers_list = self.handler_dic)
-
 		#Creating a network object to send messages
 		self.net_client = networkUDP(serverport)
 		#Creating a driver object
@@ -181,16 +181,12 @@ class Elevator(object):
 		self.masterWatcher_tolerance = 5
 		#Tolerance in seconds to the master receive a reply of dead or alive question from slave (dOa_r)
 		self.dead_or_alive_time_tolerance = 12
-		
-
 		#Current external requests in the system for each floor
 		self.interface = {"uf1" : 0, "uf2" : 0, "uf3" : 0, "df2" : 0, "df3" : 0, "df4" : 0}
-		
-
 		#Creating a Brain object
 		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy, self.control_info)
 		
-		self.thread_interfaceM  = threading.Thread(target = self.interfaceMonitor)
+		self.thread_interfaceM  = threading.Thread(target = self.buttonsMonitor)
 		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
 		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
@@ -199,18 +195,16 @@ class Elevator(object):
 		self.thread_externalE   = threading.Thread(target = self.external_exe)
 		self.thread_masterW		= threading.Thread(target = self._masterWatcher)
 		self.thread_dOa_M       = threading.Thread(target = self._dead_or_alive_monitor)
-
+		self.thread_server      = threading.Thread(target = self.net_server.listen)
+		self.thread_server_bdc  = threading.Thread(target = self.net_bdcast.listen)
 		#Sending the lift to a known position (default = 0)
 		self._system_init()
 
 	def _interfaceBroadcast(self):
-#		while True:
 		m_type =  "IU"
 		self.interface_resource.acquire()
 		self.net_client.broadcast(m_type, self.interface)
 		self.interface_resource.release()			
-
-#			time.sleep(0.7)
 
 	def _systeminfoBroadcast(self):
 		while True:
@@ -223,7 +217,7 @@ class Elevator(object):
 			time.sleep(0.01)
 				
 
-	def interfaceMonitor(self):
+	def buttonsMonitor(self):
 		while True:
 
 			uf1 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
@@ -333,12 +327,20 @@ class Elevator(object):
 				self.system_info_resource.release()
 			time.sleep(0.01) #100 times per second
 
+	def _number_of_internal_requests(self):
+		d = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0}
+		c = 0
+		for button in d.keys():
+			if self.system_info[self.myIP][button] == 1:
+				c = c + 1
+		return c
+
 	def _go_to_destin(self, destination_o):
 		#PRIVATE METHOD, it is not in the interface
 		#Method to be used to execute internal orders
 
-		#Setting the elevator busy (just in case the caller didn't do it)
-		self._set_busy_state(1)
+		#Setting the elevator busy (just in case the caller didn't do it before)
+		#self._set_busy_state(1)
 
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
 		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
@@ -354,7 +356,7 @@ class Elevator(object):
 		else:
 			self._clear_internal_request(destination)
 			#The elevator is not busy anymore (just in case the caller forget do it in the return)
-			self._set_busy_state(0)
+			#self._set_busy_state(0)
 			return
 
 		self.system_info_resource.acquire()
@@ -365,7 +367,7 @@ class Elevator(object):
 		#Keep the elevator moving till it arrives in its destination
 		while(self.driver.elev_get_floor_sensor_signal() != destination):
 			#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
-			destination = self.brain.internal_next_destin()
+			#destination = self.brain.internal_next_destin()
 			if destination == -1:
 				self.system_info[self.myIP]["lastF"] = 0
 			self.driver.elev_set_motor_direction(direction)
@@ -374,12 +376,13 @@ class Elevator(object):
 				print "FAULT: I've got stuck while executing an internal order"
 				return 
 
+		self.system_info[self.myIP]["lastF"] = 0
+				
 		self.driver.elev_set_motor_direction(0)
-
+		#if destination != -1:
 		self._clear_internal_request(destination)
 
 		self.interface_resource.acquire()
-
 		if((direction == 1)):
 			if(destination == 3):
 				self.interface[translation_d[destination]] = 0
@@ -398,7 +401,8 @@ class Elevator(object):
 #		Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
 		#The elevator is not busy anymore (just in case the caller forget do it in the return)
-		self._set_busy_state(0)
+		#self._set_busy_state(0)
+
 
 	def _go_to_destin_e(self, destination_o):
 		#Elevator is busy
@@ -492,15 +496,17 @@ class Elevator(object):
 		while True:
 			if self.system_info[self.myIP]["busy"] == 0:
 				destin = self.brain.internal_next_destin()
-				#print self.system_info
 				if destin != -1:
-					self._go_to_destin(destin)
+					self._set_busy_state(1)
+					while(self._number_of_internal_requests() != 0):
+						print "Elevator busy due to internal requests. Number of remaining Internal Requests = " + str(self._number_of_internal_requests())
+						self._go_to_destin(destin)
+						destin = self.brain.internal_next_destin()
+					self._set_busy_state(0)
 				else:
 					self._clear_internal_request(self.system_info[self.myIP]["lastF"])
-		#	print "Destin: " + str(destin)
 			time.sleep(1)
-			#print self.interface
-			#print self.myIP + " ---> busy = " + str(self.system_info[self.myIP]["busy"])
+
 
 	def external_exe(self):
 		while True:
@@ -540,7 +546,7 @@ class Elevator(object):
 #			print "Destin: " + str(destin)
 
 		
-# ============== FAULT HANDLER FUNCTIONS ====================	
+
 	def _system_init(self):
 		floor = -1
 		while floor != 0:
@@ -553,6 +559,33 @@ class Elevator(object):
 			for elevator in self.hierarchy:
 				self.system_info[elevator]["LRT"] = time.time()
 
+	def run(self):
+		self.thread_interfaceM.start()
+		self.thread_interfaceU.start()
+	#	self.thread_interfaceB.start()
+		self.thread_systeminfoB.start()
+		self.thread_positionM.start()
+		self.thread_internalE.start()
+		self.thread_externalE.start()	
+	#	self.thread_dOa_M.start()
+		self.thread_masterW.start()
+		self.thread_server.start()
+		self.thread_server_bdc.start()
+
+		self.thread_interfaceM.join()
+		self.thread_interfaceU.join()
+	#	self.thread_interfaceB.join()
+		self.thread_systeminfoB.join()
+		self.thread_positionM.join()
+		self.thread_internalE.join()
+		self.thread_externalE.join()
+		self.thread_server.join()
+		self.thread_dOa_M.join()
+		self.thread_masterW.join()
+
+
+
+# ============== FAULT HANDLER FUNCTIONS ====================	
 	def _masterWatcher(self):
 		while True:
 			if self.control_info[self.myIP]["M/MW/S"] == 1:
@@ -565,7 +598,6 @@ class Elevator(object):
 				
 			time.sleep(self.masterWatcher_tolerance)
 		
-
 
 	def _switchmaster(self):
 		#I am the new master, muuuuuhahahaha!!!!!
@@ -619,41 +651,3 @@ class Elevator(object):
 
 			time.sleep(1.5)
 			
-
-
-def main():
-	elevator1 = Elevator(serverport = 51012)
-	print "Hello, my ip is:"
-	print elevator1.net_server.getmyip()
-	
-	thread_server = threading.Thread(target = elevator1.net_server.listen)
-	
-	elevator1.thread_interfaceM.start()
-	elevator1.thread_interfaceU.start()
-#	elevator1.thread_interfaceB.start()
-	elevator1.thread_systeminfoB.start()
-	elevator1.thread_positionM.start()
-	elevator1.thread_internalE.start()
-	elevator1.thread_externalE.start()	
-#	elevator1.thread_dOa_M.start()
-	elevator1.thread_masterW.start()
-
-
-
-	thread_server.start()
-	elevator1.net_bdcast.listen()
-
-
-	elevator1.thread_interfaceM.join()
-	elevator1.thread_interfaceU.join()
-#	elevator1.thread_interfaceB.join()
-	elevator1.thread_systeminfoB.join()
-	elevator1.thread_positionM.join()
-	elevator1.thread_internalE.join()
-	elevator1.thread_externalE.join()
-	thread_server.join()
-	elevator1.thread_dOa_M.join()
-	elevator1.thread_masterW.join()
-
-if __name__ == '__main__':
-	main()
