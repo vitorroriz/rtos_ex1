@@ -31,7 +31,7 @@ class Brain(object):
 				if (distance_raw > 0):
 					distances[i] = distance_raw
 		try:
-			#if there is some potential destinal, min() will not fail and we take the nearest one
+			#if there is some potential destin, min() will not fail and we take the nearest one
 			destination = min(distances, key=distances.get)
 			#self.system_info_v["busy"] = 1
 			#return next destination calculated

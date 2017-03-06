@@ -338,70 +338,66 @@ class Elevator(object):
 	def _go_to_destin(self, destination_o):
 		#PRIVATE METHOD, it is not in the interface
 		#Method to be used to execute internal orders
-
-		#Setting the elevator busy (just in case the caller didn't do it before)
-		#self._set_busy_state(1)
-
 		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
 		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
 
 		destination = destination_o
-		current = self.system_info[self.myIP]["lastF"]
-		distance = destination - current
-		if (distance > 0):
-			direction = 1
-		elif(distance < 0):
-			direction = -1
-		else:
+		while(self._number_of_internal_requests != 0):
+			print "Number of requests = " + str(self._number_of_internal_requests())
+			current = self.system_info[self.myIP]["lastF"]
+			distance = destination - current
+			if (distance > 0):
+				direction = 1
+			elif(distance < 0):
+				direction = -1
+			else:
+				self._clear_internal_request(destination)
+				#self.system_info[self.myIP]["lastDir"] = 0
+
+			self.system_info_resource.acquire()
+			self.system_info[self.myIP]["lastDir"] = direction
+			self.system_info_resource.release()
+
+			destination = self.brain.internal_next_destin()
+			print "going to " + str(destination)
+			#Keep the elevator moving till it arrives in its destination
+			while(self.driver.elev_get_floor_sensor_signal() != destination):
+				time_init = time.time()
+				#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
+				destination = self.brain.internal_next_destin()
+				if destination == -1:
+					self.system_info[self.myIP]["lastDir"] = 0
+					return 
+					
+				self.driver.elev_set_motor_direction(direction)
+				if((int)(time.time() - time_init) > 10):
+					self.driver.elev_set_motor_direction(0)
+					print "FAULT: I've got stuck while executing an internal order"
+					return 
+
+			self.driver.elev_set_motor_direction(0)
+		#	if destination != -1:
 			self._clear_internal_request(destination)
-			#The elevator is not busy anymore (just in case the caller forget do it in the return)
-			#self._set_busy_state(0)
-			return
 
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP]["lastDir"] = direction
-		self.system_info_resource.release()
-
-		time_init = time.time()
-		#Keep the elevator moving till it arrives in its destination
-		while(self.driver.elev_get_floor_sensor_signal() != destination):
-			#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
-			#destination = self.brain.internal_next_destin()
-			if destination == -1:
-				self.system_info[self.myIP]["lastF"] = 0
-			self.driver.elev_set_motor_direction(direction)
-			if((int)(time.time() - time_init) > 10):
-				self.driver.elev_set_motor_direction(0)
-				print "FAULT: I've got stuck while executing an internal order"
-				return 
-
-		self.system_info[self.myIP]["lastF"] = 0
-				
-		self.driver.elev_set_motor_direction(0)
-		#if destination != -1:
-		self._clear_internal_request(destination)
-
-		self.interface_resource.acquire()
-		if((direction == 1)):
-			if(destination == 3):
-				self.interface[translation_d[destination]] = 0
+			self.interface_resource.acquire()
+			if((direction == 1)):
+				if(destination == 3):
+					self.interface[translation_d[destination]] = 0
+					
+				else:
+					self.interface[translation_u[destination]] = 0 
 				
 			else:
-				self.interface[translation_u[destination]] = 0 
-			
-		else:
-			if(destination == 0):
-				self.interface[translation_u[destination]] = 0
-			else:
-				self.interface[translation_d[destination]] = 0 
-		self.net_client.broadcast("ERD",self.interface)
+				if(destination == 0):
+					self.interface[translation_u[destination]] = 0
+				else:
+					self.interface[translation_d[destination]] = 0 
+			self.net_client.broadcast("ERD",self.interface)
 
-		self.interface_resource.release()
-#		Open the door for 3 seconds to the passagers to enter
-		self.open_door(3)
-		#The elevator is not busy anymore (just in case the caller forget do it in the return)
-		#self._set_busy_state(0)
+			self.interface_resource.release()
+	#		Open the door for 3 seconds to the passagers to enter
+			self.open_door(3)
 
 
 	def _go_to_destin_e(self, destination_o):
@@ -438,6 +434,7 @@ class Elevator(object):
 		self.system_info_resource.release()
 
 		time_init = time.time()
+
 		while(self.driver.elev_get_floor_sensor_signal() != destination):
 			#destination = self.brain.external_next_destin(self.myIP)
 			self.driver.elev_set_motor_direction(direction)
@@ -498,10 +495,11 @@ class Elevator(object):
 				destin = self.brain.internal_next_destin()
 				if destin != -1:
 					self._set_busy_state(1)
-					while(self._number_of_internal_requests() != 0):
-						print "Elevator busy due to internal requests. Number of remaining Internal Requests = " + str(self._number_of_internal_requests())
-						self._go_to_destin(destin)
-						destin = self.brain.internal_next_destin()
+#					while(self._number_of_internal_requests() != 0):
+					print "Elevator busy due to internal requests -> %i . Number of remaining Internal Requests = " %destin + str(self._number_of_internal_requests())
+					self._go_to_destin(destin)
+			#		destin = self.brain.internal_next_destin()
+					print "Internals: RELEASING MOTOR!"
 					self._set_busy_state(0)
 				else:
 					self._clear_internal_request(self.system_info[self.myIP]["lastF"])
