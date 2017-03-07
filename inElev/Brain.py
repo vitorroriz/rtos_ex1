@@ -28,7 +28,7 @@ class Brain(object):
 					distance_raw = abs(i_dic_int[i] - self.system_info_v["lastF"])
 				else:
 					distance_raw = (i_dic_int[i] - self.system_info_v["lastF"])*self.system_info_v["lastDir"]
-				if (distance_raw > 0):
+				if (distance_raw >= 0):
 					distances[i] = distance_raw
 		try:
 			#if there is some potential destin, min() will not fail and we take the nearest one

@@ -343,8 +343,11 @@ class Elevator(object):
 		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
 
-		destination = destination_o
+		#destination = destination_o
 		while(self._number_of_internal_requests != 0):
+			destination = self.brain.internal_next_destin()	
+			print "going to " + str(destination)
+
 			print "Number of requests = " + str(self._number_of_internal_requests())
 			current = self.system_info[self.myIP]["lastF"]
 			distance = destination - current
@@ -354,13 +357,18 @@ class Elevator(object):
 				direction = -1
 			else:
 				self._clear_internal_request(destination)
+				direction = 0
 				#self.system_info[self.myIP]["lastDir"] = 0
 
 			self.system_info_resource.acquire()
 			self.system_info[self.myIP]["lastDir"] = direction
 			self.system_info_resource.release()
 
-			destination = self.brain.internal_next_destin()
+			# destination = self.brain.internal_next_destin()
+			# if destination == -1:
+			# 	self.system_info[self.myIP]["lastDir"] = 0
+			# 	return 
+
 			print "going to " + str(destination)
 			#Keep the elevator moving till it arrives in its destination
 			while(self.driver.elev_get_floor_sensor_signal() != destination):
@@ -370,6 +378,7 @@ class Elevator(object):
 				destination = self.brain.internal_next_destin()
 				if destination == -1:
 					self.system_info[self.myIP]["lastDir"] = 0
+					print "Here!"
 					return 
 					
 				self.driver.elev_set_motor_direction(direction)
@@ -495,12 +504,14 @@ class Elevator(object):
 	def internal_exe(self):
 		while True:
 			if self.system_info[self.myIP]["busy"] == 0:
-				destin = self.brain.internal_next_destin()
-				if destin != -1:
+				#destin = self.brain.internal_next_destin()
+				#if destin != -1:
+				print "Remaining IR = " + str(self._number_of_internal_requests())
+				if(self._number_of_internal_requests() > 0):
 					self._set_busy_state(1)
 #					while(self._number_of_internal_requests() != 0):
-					print "Elevator busy due to internal requests -> %i . Number of remaining Internal Requests = " %destin + str(self._number_of_internal_requests())
-					self._go_to_destin(destin)
+					print "Elevator busy due to internal requests" 
+					self._go_to_destin(0)
 			#		destin = self.brain.internal_next_destin()
 					print "Internals: RELEASING MOTOR!"
 					self._set_busy_state(0)
@@ -549,11 +560,11 @@ class Elevator(object):
 		
 
 	def _system_init(self):
-		# floor = -1
-		# while floor != 0:
-		# 	self.driver.elev_set_motor_direction(-1)
-		# 	floor = self.driver.elev_get_floor_sensor_signal()
-		# self.driver.elev_set_motor_direction(0)
+		floor = -1
+		while floor != 0:
+			self.driver.elev_set_motor_direction(-1)
+			floor = self.driver.elev_get_floor_sensor_signal()
+		self.driver.elev_set_motor_direction(0)
 
 		if self.control_info[self.myIP]["M/MW/S"] == 0:
 			#I am the master muuuhahahahha
@@ -561,9 +572,9 @@ class Elevator(object):
 				self.system_info[elevator]["LRT"] = time.time()
 
 	def run(self):
-	#	self.thread_buttonsM.start()
-	#	self.thread_interfaceU.start()
-	#	self.thread_interfaceB.start()
+		self.thread_buttonsM.start()
+		self.thread_interfaceU.start()
+		self.thread_interfaceB.start()
 		self.thread_systeminfoB.start()
 		self.thread_positionM.start()
 		self.thread_internalE.start()
@@ -646,11 +657,13 @@ class Elevator(object):
 							self._update_control_info(elevator, -1, 0, None, None) #broadcast
 							#increasing the counter of dead elevators
 							number_of_dead_elevators = number_of_dead_elevators + 1
-							#if the master thinks that everybody is dead, the master is disconnected
-							if number_of_dead_elevators == (self.number_of_elevators - 1): 
-								self.control_info[self.myIP]["M/MW/S"] = 2
-								print "MASTER: Nobody is replying, I'm probably disconnected"
-								print "MASTER: Becoming a Slave!" 
+							#if the master thinks that everybody is dead, the master is probably disconnected
+							#but it just makes sense to take some action if are at least 3 elevatos in the network
+							if (self.number_of_elevators > 2):
+								if number_of_dead_elevators == (self.number_of_elevators - 1): 
+									self.control_info[self.myIP]["M/MW/S"] = 2
+									print "MASTER: Nobody is replying, I'm probably disconnected"
+									print "MASTER: Becoming a Slave!" 
 
 
 			time.sleep(1.5)
