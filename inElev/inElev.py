@@ -623,6 +623,9 @@ class Elevator(object):
 		#finally becoming the master and handling the system
 		self.control_info[self.myIP]["M/MW/S"] = 0
 
+		for elevator in self.hierarchy.keys():
+			self.control_info[elevator]["LRT"] = time.time()
+
 	def _dead_or_alive_monitor(self):
 		while True:
 			if (self.control_info[self.myIP]["M/MW/S"] == 0):
