@@ -33,14 +33,12 @@ class Elevator(object):
 
 	# -------- Handlers to received packets ----------------------------
 	def _handler_master_order(self,data_in, addr):
-		#Elevator is busy
-		self._set_busy_state(1)
+
 		#Looking the floor the master told the elevator to go
 		floor = data_in["floor"]
 		#Sending the elevator to the destin required
 		self._go_to_destin_e(floor)
-		#Elevator is not busy anymore
-		self._set_busy_state(0)
+
 		print "SLAVE: Got a master order..."
 
 	def _handler_update_control_info(self,data_in,addr):
@@ -414,7 +412,7 @@ class Elevator(object):
 	def _go_to_destin_e(self, destination_o):
 		#elevator is busy
 		self._set_busy_state(1)
-		
+
 		translation_d = {0: "uf1", 1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0: "uf1" , 1 : "uf2" , 2 : "uf3", 3 : "df4"}
 
@@ -549,7 +547,7 @@ class Elevator(object):
 								print "I SENT THIS ORDER TO " + elevator_IP + ":" + str(self.serverport) 
 					else:
 						#if the elevator is busy, dont do nothing, just remeber to release the resource
-						print "There are no elevators available now."
+						print "Elevator %s not available now" %elevator_IP 
 						self.system_info_resource.release()
 					time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
 #			print "Destin: " + str(destin)
@@ -656,6 +654,7 @@ class Elevator(object):
 							number_of_dead_elevators = number_of_dead_elevators + 1
 							#if the master thinks that everybody is dead, the master is probably disconnected
 							#but it just makes sense to take some action if are at least 3 elevatos in the network
+							print "ALERT: ELEVATOR %s is DEAD or under problems!" %elevator
 							if (self.number_of_elevators > 2):
 								if number_of_dead_elevators == (self.number_of_elevators - 1): 
 									self.control_info[self.myIP]["M/MW/S"] = 2
