@@ -412,7 +412,9 @@ class Elevator(object):
 
 
 	def _go_to_destin_e(self, destination_o):
-	
+		#elevator is busy
+		self._set_busy_state(1)
+		
 		translation_d = {0: "uf1", 1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0: "uf1" , 1 : "uf2" , 2 : "uf3", 3 : "df4"}
 
@@ -537,7 +539,7 @@ class Elevator(object):
 							if (elevator_IP == self.myIP):
 								print "MASTER: Sending a thread to handle my movement"
 								#self._go_to_destin_e(destin)
-								self._set_busy_state(1)
+
 								thread_execution = threading.Thread(target = self._go_to_destin_e, args = (destin,))
 								thread_execution.start()
 								
