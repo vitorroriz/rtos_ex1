@@ -22,6 +22,7 @@ DIRN_STOP = 0
 DIRN_UP = 1
 
 
+
 BUTTON_CALL_UP = 0
 BUTTON_CALL_DOWN = 1
 BUTTON_COMMAND = 2
@@ -186,7 +187,7 @@ class Elevator(object):
 		#Creating a Brain object
 		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy, self.control_info)
 		
-		self.thread_interfaceM  = threading.Thread(target = self.buttonsMonitor)
+		self.thread_buttonsM  = threading.Thread(target = self.buttonsMonitor)
 		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
 		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
@@ -214,7 +215,7 @@ class Elevator(object):
 			self.system_info_resource.release()
 #			print self.system_info[self.myIP]["busy"]
 
-			time.sleep(0.01)
+			time.sleep(0.1)
 				
 
 	def buttonsMonitor(self):
@@ -262,7 +263,7 @@ class Elevator(object):
 			self.system_info[self.myIP]["cf4"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
 			self.system_info[self.myIP]["stop"]|= self.driver.elev_get_stop_signal()
 			self.system_info_resource.release()	
-			time.sleep(0.1)	
+			time.sleep(0.25)	
 
 	def interfaceUpdate(self):
 		while True:
@@ -285,7 +286,7 @@ class Elevator(object):
 			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
 			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
 			self.system_info_resource.release()
-			time.sleep(0.1)
+			time.sleep(0.25)
 
 	def _request_interface(self, elevator_IP):
 		self.net_client.sendto((elevator_IP, self.serverport), "RI", "")
@@ -325,7 +326,7 @@ class Elevator(object):
 				self.system_info_resource.acquire()
 				self.system_info[self.myIP]["lastF"] = floor
 				self.system_info_resource.release()
-			time.sleep(0.01) #100 times per second
+			time.sleep(0.1) 
 
 	def _number_of_internal_requests(self):
 		d = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0}
@@ -365,6 +366,7 @@ class Elevator(object):
 			while(self.driver.elev_get_floor_sensor_signal() != destination):
 				time_init = time.time()
 				#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
+				time.sleep(0.01) #just to guarantee chances of preemption
 				destination = self.brain.internal_next_destin()
 				if destination == -1:
 					self.system_info[self.myIP]["lastDir"] = 0
@@ -440,6 +442,7 @@ class Elevator(object):
 			self.driver.elev_set_motor_direction(direction)
 			time_now = time.time()
 			#If the movement takes more than 10 seconds, stop movement, declare elevator as dead, and release its ex_destin to be taken by other elevator
+			time.sleep(0.01) #just to guarantee chances of preemption
 			if((int)(time_now - time_init) > 10):
 				self._update_control_info(self.myIP, -1, 0, None, None)
 				self.driver.elev_set_motor_direction(0)
@@ -558,8 +561,8 @@ class Elevator(object):
 				self.system_info[elevator]["LRT"] = time.time()
 
 	def run(self):
-		self.thread_interfaceM.start()
-		self.thread_interfaceU.start()
+	#	self.thread_buttonsM.start()
+	#	self.thread_interfaceU.start()
 	#	self.thread_interfaceB.start()
 		self.thread_systeminfoB.start()
 		self.thread_positionM.start()
@@ -570,8 +573,8 @@ class Elevator(object):
 		self.thread_server.start()
 		self.thread_server_bdc.start()
 
-		self.thread_interfaceM.join()
-		self.thread_interfaceU.join()
+	#	self.thread_buttonsM.join()
+	#	self.thread_interfaceU.join()
 	#	self.thread_interfaceB.join()
 		self.thread_systeminfoB.join()
 		self.thread_positionM.join()
