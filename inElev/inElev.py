@@ -371,8 +371,9 @@ class Elevator(object):
 
 			print "going to " + str(destination)
 			#Keep the elevator moving till it arrives in its destination
+			time_init = time.time()
 			while(self.driver.elev_get_floor_sensor_signal() != destination):
-				time_init = time.time()
+				
 				#Recalculating internal destination in case there is a floor to stop in the same direction the elevator is going
 				time.sleep(0.01) #just to guarantee chances of preemption
 				destination = self.brain.internal_next_destin()
@@ -383,9 +384,8 @@ class Elevator(object):
 					
 				self.driver.elev_set_motor_direction(direction)
 				if((int)(time.time() - time_init) > 10):
-					self.driver.elev_set_motor_direction(0)
-					print "FAULT: I've got stuck while executing an internal order"
-					return 
+					self._power_loss_handler(external_internaln = 0, destination = destination)
+					
 
 			self.driver.elev_set_motor_direction(0)
 		#	if destination != -1:
@@ -412,9 +412,7 @@ class Elevator(object):
 
 
 	def _go_to_destin_e(self, destination_o):
-		#Elevator is busy
-		self._set_busy_state(1)
-
+	
 		translation_d = {0: "uf1", 1 : "df2" , 2 : "df3" , 3 : "df4"}
 		translation_u = {0: "uf1" , 1 : "uf2" , 2 : "uf3", 3 : "df4"}
 
@@ -453,9 +451,7 @@ class Elevator(object):
 			#If the movement takes more than 10 seconds, stop movement, declare elevator as dead, and release its ex_destin to be taken by other elevator
 			time.sleep(0.01) #just to guarantee chances of preemption
 			if((int)(time_now - time_init) > 10):
-				self._update_control_info(self.myIP, -1, 0, None, None)
-				self.driver.elev_set_motor_direction(0)
-				print "FAULT: I've got stuck while executing an external order"
+				self._power_loss_handler(external_internaln = 1, destination = destination)
 				return 	
 
 		self.driver.elev_set_motor_direction(0)
@@ -541,9 +537,7 @@ class Elevator(object):
 							if (elevator_IP == self.myIP):
 								print "MASTER: Sending a thread to handle my movement"
 								#self._go_to_destin_e(destin)
-								self.system_info_resource.acquire()
-								self.system_info[self.myIP]["busy"] = 1
-								self.system_info_resource.release()	
+								self._set_busy_state(1)
 								thread_execution = threading.Thread(target = self._go_to_destin_e, args = (destin,))
 								thread_execution.start()
 								
@@ -553,6 +547,7 @@ class Elevator(object):
 								print "I SENT THIS ORDER TO " + elevator_IP + ":" + str(self.serverport) 
 					else:
 						#if the elevator is busy, dont do nothing, just remeber to release the resource
+						print "There are no elevators available now."
 						self.system_info_resource.release()
 					time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
 #			print "Destin: " + str(destin)
@@ -647,7 +642,7 @@ class Elevator(object):
 				number_of_dead_elevators = 0
 				current_time = time.time()
 				for elevator in self.hierarchy:
-					if (elevator != self.myIP):
+					if ( (elevator != self.myIP) and (self.control_info[elevator]["dOa"] == 1)):
 						if(int(current_time - self.control_info[elevator]["LRT"]) > self.dead_or_alive_time_tolerance):
 							#declare elevator as dead
 							self.control_info[elevator]["dOa"] = 0
@@ -667,4 +662,22 @@ class Elevator(object):
 
 
 			time.sleep(1.5)
-			
+	
+	def _power_loss_handler(self, external_internaln, destination = None):
+		self.control_info[self.myIP]["dOa"] = 0
+		self._update_control_info(self.myIP, -1, 0, None, None)
+		print "FAULT: Elevator got stuck while moving to floor %i. Possible causes: Motor power loss, problems in the rail." %(destination+1)
+
+		while(self.driver.elev_get_floor_sensor_signal() != destination):
+			time.sleep(0.01)
+
+		self.driver.elev_set_motor_direction(0)
+		print "Motor recovered!"	
+		self.control_info[self.myIP]["dOa"] = 1
+		self.control_info[self.myIP]["ex_destin"] = -1
+		self._update_control_info(self.myIP, -1, 1, None, None)
+
+		if(external_internaln):
+			self._set_busy_state(0)
+
+	
