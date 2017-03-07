@@ -549,11 +549,11 @@ class Elevator(object):
 		
 
 	def _system_init(self):
-		floor = -1
-		while floor != 0:
-			self.driver.elev_set_motor_direction(-1)
-			floor = self.driver.elev_get_floor_sensor_signal()
-		self.driver.elev_set_motor_direction(0)
+		# floor = -1
+		# while floor != 0:
+		# 	self.driver.elev_set_motor_direction(-1)
+		# 	floor = self.driver.elev_get_floor_sensor_signal()
+		# self.driver.elev_set_motor_direction(0)
 
 		if self.control_info[self.myIP]["M/MW/S"] == 0:
 			#I am the master muuuhahahahha
