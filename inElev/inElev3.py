@@ -100,6 +100,14 @@ class Elevator(object):
 		self.interface["df4"] &= data_in["df4"]	
 		self.interface_resource.release()
 
+	def _handler_external_request_done2(self, data_in, addr):
+		self.interface_resource.acquire()
+		for floor in range(self.number_of_floors):
+			for button in range(2):
+				self.interface2[floor] &= data_in[floor]
+		self.interface_resource.release()
+
+
 	def _handler_deadOa_question(self, data_in, addr):
 		#updating the status of masterAlive
 		self.masterAlive = 1
@@ -310,6 +318,26 @@ class Elevator(object):
 			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
 			self.system_info_resource.release()
 			time.sleep(0.25)
+
+	def interfaceUpdate2(self):
+		while True:
+
+			self.interface_resource.acquire()
+			for floor in range(self.number_of_floors):
+				for button in range(2):
+					self.driver.elev_set_button_lamp(button, floor, self.interface2[floor][button])
+			self.interface_resource.release()	
+
+			self.system_info_resource.acquire()
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 0, self.system_info[self.myIP]["cf1"])
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 1, self.system_info[self.myIP]["cf2"])
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.system_info[self.myIP]["cf3"])
+			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.system_info[self.myIP]["cf4"])
+			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
+			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
+			self.system_info_resource.release()
+			time.sleep(0.25)
+
 
 	def open_door(self, time_s):
 		self.driver.elev_set_door_open_lamp(1)
