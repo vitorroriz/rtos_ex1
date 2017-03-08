@@ -1,6 +1,6 @@
 import threading
 
-from inElev2 import Elevator
+from inElev3 import Elevator
 
 def main():
 	#elevator1 = Elevator(serverport = 51012, hierarchy = {"129.241.187.146" : 0, "129.241.187.149" : 1} )#, "129.241.187.145" : 2})

@@ -10,7 +10,7 @@ from ctypes import cdll
 
 #Importing project modules
 from networkUDP import networkUDP
-from Brain import  Brain
+from Brain3 import  Brain
 #Elevator class
 #-----------Definitions for the interface with the .C driver files-----
 N_FLOORS = 4
@@ -115,6 +115,8 @@ class Elevator(object):
 		self.number_of_floors = 4
 		self.system_info = {}
 		self.control_info = {}
+		self.interface = {}
+		self.commands = {}
 		#Initializing data structures
 		for elevator in self.hierarchy.keys():
 			self.system_info[elevator] =  {"lastF" : 0, "lastDir" : 0, "busy" : 0}
@@ -221,12 +223,10 @@ class Elevator(object):
 				self.driver.elev_set_button_lamp(BUTTON_COMMAND, floor, self.commands[floor])
 				for button in range(2):		
 					self.driver.elev_set_button_lamp(button, floor, self.interface[floor][button])
-			self.interface_resource.release()
 			self.commands_resource.release()
-
-
+			self.interface_resource.release()
+			
 			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
-
 			time.sleep(0.25)
 
 	def open_door(self, time_s):
@@ -312,6 +312,7 @@ class Elevator(object):
 		self.commands_resource.release()
 
 	def _clear_external_request(self, destination):
+		pass
 		#NOT USED YET
 
 	def _number_of_internal_requests(self):
