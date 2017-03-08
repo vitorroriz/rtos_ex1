@@ -60,6 +60,13 @@ class networkUDP:
         sock.bind(addr_to_bind)
         return sock
 
+    def _pack(self, message_type, data_in):
+        #Serializing new data into out and in data packs
+        data_in_packed = pickle.dumps(data_in)
+        data_out = {"m_type" : message_type, "data" : data_in_packed }
+        data_out_packed = pickle.dumps(data_out)
+        return data_out_packed
+
     def _unpack(self, data_out_packed):
         #Deserializing new data into out and in data packs
         data_out = pickle.loads(data_out_packed)
@@ -69,7 +76,6 @@ class networkUDP:
 
     def listen(self):
         sock = self.__makeserversocket()
-
         while True:
             try:
                 #Waiting for new data
@@ -79,7 +85,6 @@ class networkUDP:
                     data_out, data_in = self._unpack(data)
 #                    print 'received %s bytes from %s' % (len(data), addr)
                     m_type = data_out["m_type"]
-
                     #Creating threads to handle new income data according to its type
                     t = threading.Thread(target = self.handler_dic[m_type], args = (data_in, addr))
                     t.start()
@@ -91,12 +96,6 @@ class networkUDP:
                 time.sleep(1)
 
         sock.close()
-
-    def _pack(self, message_type, data_in):
-        data_in_packed = pickle.dumps(data_in)
-        data_out = {"m_type" : message_type, "data" : data_in_packed }
-        data_out_packed = pickle.dumps(data_out)
-        return data_out_packed
      
     def sendto(self, addr , message_type, data_in):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -122,56 +121,5 @@ class networkUDP:
             dummysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             dummysocket.connect(('8.8.8.8',80)) #connecting to google to find my IP
             return dummysocket.getsockname()[0]
-
-
-
-def serverhand():
-    net1 = networkUDP(27024) 
-    print 'My IP is: ' + net1.getmyip()
-
-    
-    try:
-        packed_data = net1.listen()
-    except KeyboardInterrupt:
-        print 'Keyboard int'
-        sys.exit()
-
-
-
-def clienthand():
-    net2 = networkUDP(27024, serverhost = '')
-    
-    i = 1
-
-    c_addr = ('129.241.187.48',27023)
-    while True:
-
-        i = i+1
-        if(i%2):
-            ms = {"floor": "3", "request_n": "4", "msg":"this is my message"}
-            message_type = "request"
-        else:
-            ms = {"msg": "Hello dic World. This is a msg test"}
-            message_type = "chat"
-
-        try:
-            net2.sendto(c_addr, message_type, ms)
-        except KeyboardInterrupt:
-            print 'Keyboard int'            
-            sys.exit()
-        time.sleep(3)
-
-# def main():
-#     ts = threading.Thread(target = serverhand)
-#     tc = threading.Thread(target = clienthand)
-
-#     ts.start()
-#     tc.start()
-
-# #   ts.join()
-#     while tc.isAlive():
-#         tc.join(5.0)
-
-
 
 

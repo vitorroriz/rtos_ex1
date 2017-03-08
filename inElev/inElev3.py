@@ -14,16 +14,10 @@ from Brain import  Brain
 #Elevator class
 #-----------Definitions for the interface with the .C driver files-----
 N_FLOORS = 4
-
-
 N_BUTTONS = 3
-
 DIRN_DOWN = -1
 DIRN_STOP = 0
 DIRN_UP = 1
-
-
-
 BUTTON_CALL_UP = 0
 BUTTON_CALL_DOWN = 1
 BUTTON_COMMAND = 2
@@ -34,13 +28,11 @@ class Elevator(object):
 
 	# -------- Handlers to received messages to pass to the Network ----------------------------
 	def _handler__master_order(self,data_in, addr):
-
 		#Looking the floor the master told the elevator to go
 		floor = data_in["floor"]
 		#Sending the elevator to the destin required
 		self._go_to_destin_e(floor)
-
-		print "SLAVE: Got a master order..."
+		print "I've Got a master order..."
 
 	def _handler_update_control_info(self,data_in,addr):
 		elevator_IP  = data_in["elevator_IP"]
@@ -60,53 +52,25 @@ class Elevator(object):
 
 	def _handler_interface_update(self,data_in, addr):
 		self.interface_resource.acquire()
-		self.interface["uf1"] |= data_in["uf1"]
-		self.interface["uf2"] |= data_in["uf2"]
-		self.interface["uf3"] |= data_in["uf3"]
-		self.interface["df2"] |= data_in["df2"]
-		self.interface["df3"] |= data_in["df3"]
-		self.interface["df4"] |= data_in["df4"]	
-		self.interface_resource.release()
-
-	def _handler_interface2_update(self,data_in, addr):
-		self.interface_resource.acquire()
 		for floor in range(self.number_of_floors):
 			for button in range(2):
-				self.interface2[floor] |= data_in[floor]
+				self.interface[floor][button] |= data_in[floor][button]
 		self.interface_resource.release()
-
 
 	def _handler_system_info_update(self, data_in, addr):
 		self.system_info_resource.acquire()
-		self.system_info[addr[0]]["cf1"] = data_in["cf1"]
-		self.system_info[addr[0]]["cf2"] = data_in["cf2"]
-		self.system_info[addr[0]]["cf3"] = data_in["cf3"]
-		self.system_info[addr[0]]["cf4"] = data_in["cf4"]
 		self.system_info[addr[0]]["stop"] = data_in["stop"]
 		self.system_info[addr[0]]["lastF"] = data_in["lastF"]
 		self.system_info[addr[0]]["lastDir"] = data_in["lastDir"]
 		self.system_info[addr[0]]["busy"] = data_in["busy"]
 		self.system_info_resource.release()
-		
-		
+
 	def _handler_external_request_done(self, data_in, addr):
-		self.interface_resource.acquire()
-		self.interface["uf1"] &= data_in["uf1"]
-		self.interface["uf2"] &= data_in["uf2"]
-		self.interface["uf3"] &= data_in["uf3"]
-
-		self.interface["df2"] &= data_in["df2"]
-		self.interface["df3"] &= data_in["df3"]
-		self.interface["df4"] &= data_in["df4"]	
-		self.interface_resource.release()
-
-	def _handler_external_request_done2(self, data_in, addr):
 		self.interface_resource.acquire()
 		for floor in range(self.number_of_floors):
 			for button in range(2):
-				self.interface2[floor] &= data_in[floor]
+				self.interface[floor][button] &= data_in[floor][button]
 		self.interface_resource.release()
-
 
 	def _handler_deadOa_question(self, data_in, addr):
 		#updating the status of masterAlive
@@ -122,14 +86,6 @@ class Elevator(object):
 		self.control_info[addr[0]]["LRT"] = time.time()
 		self._update_control_info(addr[0], None, None, self.control_info[addr[0]]["LRT"], None)
 		#print "MASTER: elevator " + addr[0] + " replied my question at " + str(self.control_info[addr[0]]["LRT"])
-
-	def _handler_switchmaster(self, data_in, addr):
-		print "Switch master handler"
-		self.hierarchy["master"] = self.hierarchy["slave1"]
-		self.hierarchy["slave1"] = self.hierarchy["slave2"]
-		print ""
-
-		print "Handler order"
 
 	def _handler_request_interface(self, data_in, addr):
 		#Elevator informs his current values for interface (would be usually asked to the master)
@@ -159,19 +115,26 @@ class Elevator(object):
 		self.number_of_floors = 4
 		self.system_info = {}
 		self.control_info = {}
-		for i in self.hierarchy.keys():
-			self.system_info[i] = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0, "stop" : 0, 
-									 "lastF" : 0, "lastDir" : 0, "busy" : 0}
-			
-			self.control_info[i] = {"ex_destin" : -1, "dOa" : 1, "LRT" : time.time(), "M/MW/S" : self.hierarchy[i]}
+		#Initializing data structures
+		for elevator in self.hierarchy.keys():
+			self.system_info[elevator] =  {"lastF" : 0, "lastDir" : 0, "busy" : 0}
+			self.control_info[elevator] = {"ex_destin" : -1, "dOa" : 1, "LRT" : time.time(), "M/MW/S" : self.hierarchy[elevator]}
 
+		for floor in range(self.number_of_floors):
+		#Current external requests in the system for each floor (interface)
+			self.interface[floor] = {0 : 0 , 1 : 0}
+		#Current internal requests in the elevator for each floor (commands)
+			self.commands[floor] = 0
 
 		#mutex to control access to the system info table
 		self.system_info_resource = threading.Lock()
 		#mutex to control access to the interface 	
 		self.interface_resource = threading.Lock()
+		#mutex to control acess to the commands
+		self.commands_resource = threading.Lock()
 		#mutex to control access to the motor
 		self.motor_resource = threading.Lock()
+
 		#Dictionary for registering the handlers for each kind of message received
 		self.handler_dic = {"MO"    : self._handler__master_order,  
 							"dOa_q" : self._handler_deadOa_question, 
@@ -197,23 +160,16 @@ class Elevator(object):
 		#Flag that indicates othat the master is alive or not (used by master watcher)
 		self.masterAlive = 1
 		#Tolerance in seconds to receive a dead or a alive question (dOa_q) from master
-		self.masterWatcher_tolerance = 5
+		self.masterWatcher_tolerance_time = 5
 		#Tolerance in seconds to the master receive a reply of dead or alive question from slave (dOa_r)
-		self.dead_or_alive_time_tolerance = 12
-		#Current external requests in the system for each floor
-		self.interface = {"uf1" : 0, "uf2" : 0, "uf3" : 0, "df2" : 0, "df3" : 0, "df4" : 0}
-
-		#buttons_interface = {0 : 0 , 1 : 0}
-		
-		for i in range (self.number_of_floors):
-			self.interface2 = {0 : 0 , 1 : 0}
-
-		#Creating a Brain object
-		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy, self.control_info)
-		
-		#Threads of the object
-		self.thread_buttonsM  = threading.Thread(target = self.buttonsMonitor)
-		self.thread_interfaceU  = threading.Thread(target = self.interfaceUpdate)
+		self.dead_or_alive_tolerance_time = 12
+		#Tolerance in seconds to consider the motor with problems (power loss or elevator stuck in rail)
+		self.motor_loss_tolerance_time = 10
+		#Creating a Brain object for the elevator
+		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy, self.control_info, self.commands)
+		#Threads of the elevator object
+		self.thread_buttonsM    = threading.Thread(target = self.buttonsMonitor)
+		self.thread_interfaceU  = threading.Thread(target = self.lightsUpdate)
 		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
 		self.thread_positionM 	= threading.Thread(target = self.positionMonitor)
@@ -231,113 +187,47 @@ class Elevator(object):
 
 	def buttonsMonitor(self):
 		while True:
-
-			uf1 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 0)
-			uf2 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 1)
-			uf3 = self.driver.elev_get_button_signal(BUTTON_CALL_UP, 2)
-			df2 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 1)
-			df3 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 2)
-			df4 = self.driver.elev_get_button_signal(BUTTON_CALL_DOWN, 3)
-
-			current_reading_interface = {"uf1" : uf1, "uf2" : uf2, "uf3" : uf3, "df2" : df2, "df3" : df3, "df4" : df4}
 			change_in_interface = 0
-			for button in self.interface.keys():
-				if ((self.interface[button] == 0) and (current_reading_interface[button] == 1)):
-					self.interface[button] = 1
-					change_in_interface = 1
-			if(change_in_interface):
-				self._interfaceBroadcast()			
-
-			change_in_interface = 0
+			self.interface_resource.acquire()
 			for floor in range (self.number_of_floors):
 				for button in range (2):
 					current_value = self.driver.elev_get_button_signal(button, floor)
-					if ((current_value == 1 ) and (self.interface2[floor][button])):
-						self.interface2[floor][button] = 1
+					if ((current_value == 1 ) and (self.interface[floor][button] == 0)):
+						self.interface[floor][button] = 1
 						change_in_interface = 1
-						if(change_in_interface):
-				self._interface2Broadcast()	
-
+			if(change_in_interface):
+				self._interfaceBroadcast()	
+			self.interface_resource.release()
 				
+			self.commands_resource.acquire()
+			for floor in range (self.number_of_floors):
+				self.commands[floor] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, floor)
+			self.commands_resource.release()	
 
-			# cf1  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
-			# cf2  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
-			# cf3  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
-			# cf4  = self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
-			# stop = self.driver.elev_get_stop_signal()
-
-			# current_reading_commands = {"cf1" : cf1,  "cf2" : cf2, "cf3" : cf3, "cf4" : cf4, "stop" : stop}
-			# change_in_commands = 0
-
-			# for command in self.system_info[self.myIP].keys():
-			# 	try:
-			# 		if((self.system_info[self.myIP][command] == 0) and (current_reading_commands[command] == 1)):
-			# 			self.system_info[self.myIP][command] = 1
-			# 			change_in_commands = 1
-
-			# if(change_in_commands):
-			# 	self._systeminfoBroadcast()
-
-			self.system_info_resource.acquire()
-			self.system_info[self.myIP]["cf1"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 0)
-			self.system_info[self.myIP]["cf2"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 1)
-			self.system_info[self.myIP]["cf3"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 2)
-			self.system_info[self.myIP]["cf4"] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, 3)
-			self.system_info[self.myIP]["stop"]|= self.driver.elev_get_stop_signal()
-			self.system_info_resource.release()	
 			time.sleep(0.25)	
 
 	def positionMonitor(self):
 		while True:
 			floor = self.driver.elev_get_floor_sensor_signal()
 			if floor != -1:
-				self.system_info_resource.acquire()
 				self.system_info[self.myIP]["lastF"] = floor
-				self.system_info_resource.release()
 			time.sleep(0.1) 
 
-	def interfaceUpdate(self):
+	def lightsUpdate(self):
 		while True:
-
 			self.interface_resource.acquire()
-			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 0, self.interface["uf1"])
-			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 1, self.interface["uf2"])
-			self.driver.elev_set_button_lamp(BUTTON_CALL_UP, 2, self.interface["uf3"])
-
-			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 1, self.interface["df2"])
-			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 2, self.interface["df3"])
-			self.driver.elev_set_button_lamp(BUTTON_CALL_DOWN, 3, self.interface["df4"])	
-			self.interface_resource.release()	
-
-			self.system_info_resource.acquire()
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 0, self.system_info[self.myIP]["cf1"])
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 1, self.system_info[self.myIP]["cf2"])
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.system_info[self.myIP]["cf3"])
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.system_info[self.myIP]["cf4"])
-			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
-			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
-			self.system_info_resource.release()
-			time.sleep(0.25)
-
-	def interfaceUpdate2(self):
-		while True:
-
-			self.interface_resource.acquire()
+			self.commands_resource.acquire()
 			for floor in range(self.number_of_floors):
-				for button in range(2):
-					self.driver.elev_set_button_lamp(button, floor, self.interface2[floor][button])
-			self.interface_resource.release()	
+				self.driver.elev_set_button_lamp(BUTTON_COMMAND, floor, self.commands[floor])
+				for button in range(2):		
+					self.driver.elev_set_button_lamp(button, floor, self.interface[floor][button])
+			self.interface_resource.release()
+			self.commands_resource.release()
 
-			self.system_info_resource.acquire()
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 0, self.system_info[self.myIP]["cf1"])
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 1, self.system_info[self.myIP]["cf2"])
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 2, self.system_info[self.myIP]["cf3"])
-			self.driver.elev_set_button_lamp(BUTTON_COMMAND, 3, self.system_info[self.myIP]["cf4"])
-			self.driver.elev_set_stop_lamp(self.system_info[self.myIP]["stop"])
+
 			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
-			self.system_info_resource.release()
-			time.sleep(0.25)
 
+			time.sleep(0.25)
 
 	def open_door(self, time_s):
 		self.driver.elev_set_door_open_lamp(1)
@@ -381,18 +271,10 @@ class Elevator(object):
 			#I am the master muuuhahahahha
 			for elevator in self.hierarchy:
 				self.system_info[elevator]["LRT"] = time.time()
-	
+
 	def _interfaceBroadcast(self):
 		m_type =  "IU"
-		self.interface_resource.acquire()
-		self.net_client.broadcast(m_type, self.interface)
-		self.interface_resource.release()		
-
-	def _interface2Broadcast(self):
-		m_type =  "IU"
-		self.interface_resource.acquire()
-		self.net_client.broadcast(m_type, self.interface2)
-		self.interface_resource.release()			
+		self.net_client.broadcast(m_type, self.interface)			
 
 	def _systeminfoBroadcast(self):
 		while True:
@@ -400,8 +282,6 @@ class Elevator(object):
 			self.system_info_resource.acquire()
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 			self.system_info_resource.release()
-#			print self.system_info[self.myIP]["busy"]
-
 			time.sleep(0.1)
 				
 	def _request_interface(self, elevator_IP):
@@ -415,6 +295,7 @@ class Elevator(object):
 			self.system_info_resource.acquire()
 			self.system_info[self.myIP]["busy"] = 0
 			self.system_info_resource.release()
+			print "Releasing the motor."
 			#releasing the control of the motor
 			self.motor_resource.release() 
 		else:
@@ -422,37 +303,31 @@ class Elevator(object):
 			self.system_info[self.myIP]["busy"] = 1
 			self.system_info_resource.release()
 			#taking the control of the motor
+			print "Elevator will move. Acquiring motor."
 			self.motor_resource.acquire() 
 
 	def _clear_internal_request(self, destination):
-		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
-		self.system_info_resource.acquire()
-		self.system_info[self.myIP][translation[destination]] = 0
-		self.system_info_resource.release()
+		self.commands_resource.acquire()
+		self.commands[destination] = 0
+		self.commands_resource.release()
 
 	def _clear_external_request(self, destination):
-		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
-		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
+		#NOT USED YET
 
 	def _number_of_internal_requests(self):
-		d = {"cf1" : 0, "cf2" : 0, "cf3" : 0, "cf4" : 0}
 		c = 0
-		for button in d.keys():
-			if self.system_info[self.myIP][button] == 1:
+		for floor in range (self.number_of_floors):
+			if self.commands[floor] == 1:
 				c = c + 1
 		return c
 
 	def _go_to_destin(self, destination_o):
 		#PRIVATE METHOD, it is not in the interface
 		#Method to be used to execute internal orders
-		translation = {0 : "cf1" , 1 : "cf2" , 2 : "cf3", 3 : "cf4"}
-		translation_d = {1 : "df2" , 2 : "df3" , 3 : "df4"}
-		translation_u = {0 : "uf1" , 1 : "uf2" , 2 : "uf3"}
 
-		#destination = destination_o
 		while(self._number_of_internal_requests != 0):
 			destination = self.brain.internal_next_destin()	
-			print "going to " + str(destination)
+			print "Going to " + str(destination)
 
 			print "Number of requests = " + str(self._number_of_internal_requests())
 			current = self.system_info[self.myIP]["lastF"]
@@ -484,7 +359,7 @@ class Elevator(object):
 					return 
 					
 				self.driver.elev_set_motor_direction(direction)
-				if((int)(time.time() - time_init) > 10):
+				if((int)(time.time() - time_init) > self.motor_loss_tolerance_time):
 					self._power_loss_handler(external_internaln = 0, destination = destination)
 					
 			self.driver.elev_set_motor_direction(0)
@@ -493,16 +368,15 @@ class Elevator(object):
 			self.interface_resource.acquire()
 			if((direction == 1)):
 				if(destination == 3):
-					self.interface[translation_d[destination]] = 0
-					
+					self.interface[destination][1] = 0				
 				else:
-					self.interface[translation_u[destination]] = 0 
+					self.interface[destination][0] = 0 
 				
 			else:
 				if(destination == 0):
-					self.interface[translation_u[destination]] = 0
+					self.interface[destination][0] = 0
 				else:
-					self.interface[translation_d[destination]] = 0 
+					self.interface[destination][1] = 0 
 			self.net_client.broadcast("ERD",self.interface)
 
 			self.interface_resource.release()
@@ -514,9 +388,6 @@ class Elevator(object):
 		#elevator is busy
 		self._set_busy_state(1)
 
-		translation_d = {0: "uf1", 1 : "df2" , 2 : "df3" , 3 : "df4"}
-		translation_u = {0: "uf1" , 1 : "uf2" , 2 : "uf3", 3 : "df4"}
-
 		destination = destination_o
 		current = self.system_info[self.myIP]["lastF"]
 		distance = destination - current
@@ -526,9 +397,9 @@ class Elevator(object):
 			direction = -1
 		else:
 			self.interface_resource.acquire()
-			self.interface[translation_u[destination]] = 0
-			self.interface[translation_d[destination]] = 0
-			self.net_client.broadcast("ERD",self.interface)
+			self.interface[destination][0] = 0
+			self.interface[destination][1] = 0
+			self.net_client.broadcast("ERD",self.interface2)
 			self.interface_resource.release()
 			#Open the door for 3 seconds to the passagers to enter
 			self.open_door(3)
@@ -550,15 +421,15 @@ class Elevator(object):
 			time_now = time.time()
 			#If the movement takes more than 10 seconds, stop movement, declare elevator as dead, and release its ex_destin to be taken by other elevator
 			time.sleep(0.01) #just to guarantee chances of preemption
-			if((int)(time_now - time_init) > 10):
+			if((int)(time_now - time_init) > self.motor_loss_tolerance_time):
 				self._power_loss_handler(external_internaln = 1, destination = destination)
 				return 	
 
 		self.driver.elev_set_motor_direction(0)
 		self.interface_resource.acquire()
-		self.interface[translation_u[destination]] = 0
-		self.interface[translation_d[destination]] = 0
-		self.net_client.broadcast("ERD",self.interface)
+		self.interface[destination][0] = 0
+		self.interface[destination][1] = 0
+		self.net_client.broadcast("ERD",self.interface2)
 		self.interface_resource.release()
 		#Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
@@ -568,14 +439,11 @@ class Elevator(object):
 		self._set_busy_state(0)
 		print "Movement done!"
 
-		
 	def _get_master(self):
 		#returns the IP of the current master of the system
 		for elevator in self.hierarchy:
 			if (self.control_info[elevator]["M/MW/S"]) == 0:
 				return elevator
-
-
 
 	def _master_order(self, elevator_IP, floor_n):
 		#Function to be called by the master, send a message of the MO (maste order) type,
@@ -610,22 +478,21 @@ class Elevator(object):
 		while True:
 			#checking if i am the master
 			if (self.control_info[self.myIP]["M/MW/S"] == 0):
-				for button in self.interface.keys():
+				for floor in self.interface2.keys():
 					self.interface_resource.acquire()
-					if ( (self.interface[button] == 1)):
+					if ( (self.interface2[floor][0] == 1) or (self.interface2[floor][1] == 1 )):
 						self.interface_resource.release()
-						elevator_to_send = self.brain.elevator_to_send(button)
+						elevator_to_send = self.brain.elevator_to_send(floor)
 						if elevator_to_send != -1:
-							print "MASTER: sending : " + elevator_to_send + " to attend the request %s" %button  
-							destin = i_dic_ext[button]
-							self.control_info[elevator_to_send]["ex_destin"] = destin
-							self._update_control_info(elevator_to_send, destin, None, None, None)						
+							print "MASTER: sending : " + elevator_to_send + " to attend the floor %i" %floor  
+							self.control_info[elevator_to_send]["ex_destin"] = floor
+							self._update_control_info(elevator_to_send, floor, None, None, None)						
 							if (elevator_to_send == self.myIP):
 								print "MASTER: Sending a thread to handle my movement"
-								thread_execution = threading.Thread(target = self._go_to_destin_e, args = (destin,))
+								thread_execution = threading.Thread(target = self._go_to_destin_e, args = (floor,))
 								thread_execution.start()
 							else:			
-								self._master_order(elevator_to_send, destin)
+								self._master_order(elevator_to_send, floor)
 								print "I SENT THIS ORDER TO " + elevator_to_send + ":" + str(self.serverport) 
 					else:
 						
@@ -642,9 +509,8 @@ class Elevator(object):
 				if self.masterAlive != 1:
 					self._switchmaster()
 				else:
-					self.masterAlive = 0
-				
-			time.sleep(self.masterWatcher_tolerance)
+					self.masterAlive = 0		
+			time.sleep(self.masterWatcher_tolerance_time)
 		
 
 	def _switchmaster(self):
@@ -684,7 +550,7 @@ class Elevator(object):
 				current_time = time.time()
 				for elevator in self.hierarchy:
 					if ( (elevator != self.myIP) and (self.control_info[elevator]["dOa"] == 1)):
-						if(int(current_time - self.control_info[elevator]["LRT"]) > self.dead_or_alive_time_tolerance):
+						if(int(current_time - self.control_info[elevator]["LRT"]) > self.dead_or_alive_tolerance_time):
 							#declare elevator as dead
 							self.control_info[elevator]["dOa"] = 0
 							#release its ex_destin field, so we can attend a possible external destin the elevator was going before
