@@ -14,9 +14,9 @@ class Brain(object):
 		for floor in self.commands.keys():
 			if self.commands[floor] == 1:
 				if(self.system_info[self.myIP]["lastDir"] == 0):
-					distance_raw = abs(i_dic_int[i] - self.system_info_v["lastF"])
+					distance_raw = abs(i_dic_int[i] - self.system_info[self.myIP]["lastF"])
 				else:
-					distance_raw = (i_dic_int[i] - self.system_info_v["lastF"])*self.system_info_v["lastDir"]
+					distance_raw = (i_dic_int[i] - self.system_info[self.myIP]["lastF"])*self.system_info[self.myIP]["lastDir"]
 				if (distance_raw >= 0):
 					distances[i] = distance_raw
 		try:
@@ -42,10 +42,10 @@ class Brain(object):
 				distances[floor] = distance_raw
 		try:
 			destination = min(distances, key=distances.get)
-			return i_dic_ext[destination]
+			return destination
 
 		except:
-			self.system_info_v["lastDir"] = 0
+			self.system_info[self.myIP]["lastDir"] = 0
 			return -1
 
 
