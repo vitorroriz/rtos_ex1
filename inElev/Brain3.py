@@ -13,7 +13,7 @@ class Brain(object):
 		#Reading the internal requests (and some external according to policy) and calculating the next destination
 		for floor in self.commands.keys():
 			if self.commands[floor] == 1:
-				if(self.system_info_v["lastDir"] == 0):
+				if(self.system_info[self.myIP]["lastDir"] == 0):
 					distance_raw = abs(i_dic_int[i] - self.system_info_v["lastF"])
 				else:
 					distance_raw = (i_dic_int[i] - self.system_info_v["lastF"])*self.system_info_v["lastDir"]
