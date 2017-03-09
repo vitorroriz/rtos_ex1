@@ -154,8 +154,8 @@ class Elevator(object):
 		#Creating a network object to send messages
 		self.net_client = networkUDP(serverport)
 		#Creating a driver object
-		self.driver = cdll.LoadLibrary('./libelev.so')
-		self.driver.elev_init()
+		self.driver = cdll.LoadLibrary('./libelev2.so')
+		self.driver.elev_init(0)
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
 		#Flag that indicates othat the master is alive or not (used by master watcher)
@@ -247,16 +247,16 @@ class Elevator(object):
 		self.thread_server.start()
 		self.thread_server_bdc.start()
 
-		self.thread_buttonsM.join()
-		self.thread_interfaceU.join()
-		self.thread_interfaceB.join()
-		self.thread_systeminfoB.join()
-		self.thread_positionM.join()
-		self.thread_internalE.join()
-		self.thread_externalE.join()
-		self.thread_server.join()
-		self.thread_dOa_M.join()
-		self.thread_masterW.join()
+		# self.thread_buttonsM.join()
+		# self.thread_interfaceU.join()
+		# self.thread_interfaceB.join()
+		# self.thread_systeminfoB.join()
+		# self.thread_positionM.join()
+		# self.thread_internalE.join()
+		# self.thread_externalE.join()
+		# self.thread_server.join()
+		# self.thread_dOa_M.join()
+		# self.thread_masterW.join()
 
 # ---------- Elevator Private functions (Not in Interface) -------------------------------------------------------
 	def _system_init(self):
@@ -310,7 +310,21 @@ class Elevator(object):
 		self.commands[destination] = 0
 		self.commands_resource.release()
 
-	def _clear_external_request(self, destination):
+	def _clear_external_request(self, floor, button):
+		#0 -> clear button up | 1 -> clear button down | 2 -> clear both
+		if(floor != -1):
+			if button == 2:
+				self.interface_resource.acquire()
+				self.interface[floor][0] = 0 
+				self.interface[floor][1] = 0 
+				self.net_client.broadcast("ERD",self.interface)
+				self.interface_resource.release()
+				return
+			self.interface_resource.acquire()
+			self.interface[floor][button] = 0 
+			self.net_client.broadcast("ERD",self.interface)
+			self.interface_resource.release()
+
 		pass
 		#NOT USED YET
 
@@ -337,6 +351,7 @@ class Elevator(object):
 			elif(distance < 0):
 				direction = -1
 			else:
+				self.driver.elev_set_motor_direction(0)
 				self._clear_internal_request(destination)
 				direction = 0
 				
@@ -365,21 +380,20 @@ class Elevator(object):
 			self.driver.elev_set_motor_direction(0)
 			self._clear_internal_request(destination)
 
-			self.interface_resource.acquire()
+			
 			if((direction == 1)):
-				if(destination == 3):
-					self.interface[destination][1] = 0				
+				if(destination == 3):	
+					self._clear_external_request(destination,1)		
 				else:
-					self.interface[destination][0] = 0 
+					self._clear_external_request(destination,0)
 				
 			else:
 				if(destination == 0):
-					self.interface[destination][0] = 0
+					self._clear_external_request(destination,0)
 				else:
-					self.interface[destination][1] = 0 
-			self.net_client.broadcast("ERD",self.interface)
+					self._clear_external_request(destination,1)
 
-			self.interface_resource.release()
+
 	#		Open the door for 3 seconds to the passagers to enter
 			self.open_door(3)
 
@@ -396,11 +410,8 @@ class Elevator(object):
 		elif(distance < 0):
 			direction = -1
 		else:
-			self.interface_resource.acquire()
-			self.interface[destination][0] = 0
-			self.interface[destination][1] = 0
-			self.net_client.broadcast("ERD",self.interface)
-			self.interface_resource.release()
+			self.driver.elev_set_motor_direction(0)
+			self._clear_external_request(destination,2)
 			#Open the door for 3 seconds to the passagers to enter
 			self.open_door(3)
 
@@ -426,11 +437,7 @@ class Elevator(object):
 				return 	
 
 		self.driver.elev_set_motor_direction(0)
-		self.interface_resource.acquire()
-		self.interface[destination][0] = 0
-		self.interface[destination][1] = 0
-		self.net_client.broadcast("ERD",self.interface)
-		self.interface_resource.release()
+		self._clear_external_request(destination,2)
 		#Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
 		self.control_info[self.myIP]["ex_destin"] = -1
@@ -461,7 +468,7 @@ class Elevator(object):
 	def _internal_exe(self):
 		while True:
 			if self.system_info[self.myIP]["busy"] == 0:
-				print "Remaining IR = " + str(self._number_of_internal_requests())
+#				print "Remaining IR = " + str(self._number_of_internal_requests())
 				if(self._number_of_internal_requests() > 0):
 					self._set_busy_state(1)
 					print "Elevator busy due to internal requests" 

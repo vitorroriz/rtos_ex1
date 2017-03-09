@@ -18,7 +18,7 @@ class Brain(object):
 				else:
 					distance_raw = (floor - self.system_info[self.myIP]["lastF"])*self.system_info[self.myIP]["lastDir"]
 				if (distance_raw >= 0):
-					distances[i] = distance_raw
+					distances[floor] = distance_raw
 		try:
 			#if there is some potential destin, min() will not fail and we take the nearest one
 			destination = min(distances, key=distances.get)
