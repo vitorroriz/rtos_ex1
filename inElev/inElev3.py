@@ -155,7 +155,7 @@ class Elevator(object):
 		self.net_client = networkUDP(serverport)
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev2.so')
-		self.driver.elev_init(0)
+		self.driver.elev_init(1)
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
 		#Flag that indicates othat the master is alive or not (used by master watcher)
