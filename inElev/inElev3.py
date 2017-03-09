@@ -400,7 +400,7 @@ class Elevator(object):
 			self.interface_resource.acquire()
 			self.interface[destination][0] = 0
 			self.interface[destination][1] = 0
-			self.net_client.broadcast("ERD",self.interface2)
+			self.net_client.broadcast("ERD",self.interface)
 			self.interface_resource.release()
 			#Open the door for 3 seconds to the passagers to enter
 			self.open_door(3)
@@ -430,7 +430,7 @@ class Elevator(object):
 		self.interface_resource.acquire()
 		self.interface[destination][0] = 0
 		self.interface[destination][1] = 0
-		self.net_client.broadcast("ERD",self.interface2)
+		self.net_client.broadcast("ERD",self.interface)
 		self.interface_resource.release()
 		#Open the door for 3 seconds to the passagers to enter
 		self.open_door(3)
@@ -479,9 +479,9 @@ class Elevator(object):
 		while True:
 			#checking if i am the master
 			if (self.control_info[self.myIP]["M/MW/S"] == 0):
-				for floor in self.interface2.keys():
+				for floor in self.interface.keys():
 					self.interface_resource.acquire()
-					if ( (self.interface2[floor][0] == 1) or (self.interface2[floor][1] == 1 )):
+					if ( (self.interface[floor][0] == 1) or (self.interface[floor][1] == 1 )):
 						self.interface_resource.release()
 						elevator_to_send = self.brain.elevator_to_send(floor)
 						if elevator_to_send != -1:
