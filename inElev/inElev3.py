@@ -175,7 +175,7 @@ class Elevator(object):
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
 		self.thread_positionM 	= threading.Thread(target = self.positionMonitor)
 		self.thread_internalE   = threading.Thread(target = self._internal_exe)
-		self.thread_externalE   = threading.Thread(target = self.external_exe)
+		self.thread_externalE   = threading.Thread(target = self._external_exe)
 		self.thread_masterW		= threading.Thread(target = self._masterWatcher)
 		self.thread_dOa_M       = threading.Thread(target = self._dead_or_alive_monitor)
 		self.thread_server      = threading.Thread(target = self.net_server.listen)
@@ -473,7 +473,7 @@ class Elevator(object):
 			time.sleep(1)
 
 
-	def external_exe(self):
+	def _external_exe(self):
 		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
 		while True:
 			#checking if i am the master
