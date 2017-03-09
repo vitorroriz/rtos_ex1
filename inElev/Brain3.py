@@ -14,9 +14,9 @@ class Brain(object):
 		for floor in self.commands.keys():
 			if self.commands[floor] == 1:
 				if(self.system_info[self.myIP]["lastDir"] == 0):
-					distance_raw = abs(i_dic_int[i] - self.system_info[self.myIP]["lastF"])
+					distance_raw = abs(floor - self.system_info[self.myIP]["lastF"])
 				else:
-					distance_raw = (i_dic_int[i] - self.system_info[self.myIP]["lastF"])*self.system_info[self.myIP]["lastDir"]
+					distance_raw = (floor - self.system_info[self.myIP]["lastF"])*self.system_info[self.myIP]["lastDir"]
 				if (distance_raw >= 0):
 					distances[i] = distance_raw
 		try:
