@@ -11,8 +11,8 @@ class Brain(object):
 		#empty dictionary to register potential internal requests to attend
 		distances = {}
 		#Reading the internal requests (and some external according to policy) and calculating the next destination
-		for floor in commands.keys():
-			if commands[floor] == 1:
+		for floor in self.commands.keys():
+			if self.commands[floor] == 1:
 				if(self.system_info_v["lastDir"] == 0):
 					distance_raw = abs(i_dic_int[i] - self.system_info_v["lastF"])
 				else:

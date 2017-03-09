@@ -59,7 +59,6 @@ class Elevator(object):
 
 	def _handler_system_info_update(self, data_in, addr):
 		self.system_info_resource.acquire()
-		self.system_info[addr[0]]["stop"] = data_in["stop"]
 		self.system_info[addr[0]]["lastF"] = data_in["lastF"]
 		self.system_info[addr[0]]["lastDir"] = data_in["lastDir"]
 		self.system_info[addr[0]]["busy"] = data_in["busy"]
