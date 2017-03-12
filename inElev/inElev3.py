@@ -570,12 +570,12 @@ class Elevator(object):
 							number_of_dead_elevators = number_of_dead_elevators + 1
 							#if the master thinks that everybody is dead, the master is probably disconnected
 							#but it just makes sense to take some action if are at least 3 elevatos in the network
-							print "ALERT: ELEVATOR %s is DEAD or under problems!" %elevator
-							if (self.number_of_elevators > 2):
-								if number_of_dead_elevators == (self.number_of_elevators - 1): 
-									self.control_info[self.myIP]["M/MW/S"] = 2
-									print "MASTER: Nobody is replying, I'm probably disconnected"
-									print "MASTER: Becoming a Slave!" 
+							# print "ALERT: ELEVATOR %s is DEAD or under problems!" %elevator
+							# if (self.number_of_elevators > 2):
+								# if number_of_dead_elevators == (self.number_of_elevators - 1): 
+									# self.control_info[self.myIP]["M/MW/S"] = 2
+									# print "MASTER: Nobody is replying, I'm probably disconnected"
+									# print "MASTER: Becoming a Slave!" 
 
 
 			time.sleep(1.5)
