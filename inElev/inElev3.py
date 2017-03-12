@@ -8,7 +8,7 @@ import mutex
 import datetime
 from ctypes import cdll
 
-#Importing project modules
+#Importing project modules network and brain
 from networkUDP import networkUDP
 from Brain3 import  Brain
 #Elevator class
@@ -87,7 +87,7 @@ class Elevator(object):
 		#print "MASTER: elevator " + addr[0] + " replied my question at " + str(self.control_info[addr[0]]["LRT"])
 
 	def _handler_request_interface(self, data_in, addr):
-		#Elevator informs his current values for interface (would be usually asked to the master)
+		#Elevator informs his current values for interface (would be usually asked to the master(s))
 		addr_to_reply = (addr[0], self.serverport)
 		m_type = "IU"
 		self.net_client.sendto(addr_to_reply, m_type, self.interface)
@@ -246,6 +246,10 @@ class Elevator(object):
 		self.thread_masterW.start()
 		self.thread_server.start()
 		self.thread_server_bdc.start()
+		
+		self._request_control_info();
+		self._request_interface();
+		
 
 		# self.thread_buttonsM.join()
 		# self.thread_interfaceU.join()
@@ -283,9 +287,9 @@ class Elevator(object):
 			self.system_info_resource.release()
 			time.sleep(0.1)
 				
-	def _request_interface(self, elevator_IP):
-		self.net_client.sendto((elevator_IP, self.serverport), "RI", "")
-
+	def _request_interface(self):
+		#self.net_client.sendto((elevator_IP, self.serverport), "RI", "")
+		self.net_client.broadcast("RI","")
 	def _request_control_info(self):
 		self.net_client.broadcast("RC","")
 
@@ -325,8 +329,6 @@ class Elevator(object):
 			self.net_client.broadcast("ERD",self.interface)
 			self.interface_resource.release()
 
-		pass
-		#NOT USED YET
 
 	def _number_of_internal_requests(self):
 		c = 0
