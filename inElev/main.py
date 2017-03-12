@@ -5,7 +5,7 @@ import datetime
 from inElev3 import Elevator
 
 def main():
-	elevator1 = Elevator(serverport = 51012, hierarchy = {"129.241.187.48" : 0, "129.241.187.151" : 0, "129.241.187.143" : 0})
+	elevator1 = Elevator(serverport = 51012, hierarchy = {"129.241.187.48" : 0, "129.241.187.151" : 0, "129.241.187.146" : 0})
 
 	elevator1 = Elevator(serverport = 51012, hierarchy = {"129.241.187.48" : 0})
 	ip = elevator1.myIP
