@@ -155,7 +155,7 @@ class Elevator(object):
 		self.net_client = networkUDP(serverport)
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev2.so')
-		self.driver.elev_init(1)
+		self.driver.elev_init(0)
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
 		#Flag that indicates othat the master is alive or not (used by master watcher)
@@ -169,11 +169,11 @@ class Elevator(object):
 		#Creating a Brain object for the elevator
 		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy, self.control_info, self.commands)
 		#Threads of the elevator object
-		self.thread_buttonsM    = threading.Thread(target = self.buttonsMonitor)
-		self.thread_interfaceU  = threading.Thread(target = self.lightsUpdate)
+		self.thread_buttonsM    = threading.Thread(target = self._buttonsMonitor)
+		self.thread_interfaceU  = threading.Thread(target = self._lightsUpdate)
 		self.thread_interfaceB  = threading.Thread(target = self._interfaceBroadcast)
 		self.thread_systeminfoB = threading.Thread(target = self._systeminfoBroadcast)
-		self.thread_positionM 	= threading.Thread(target = self.positionMonitor)
+		self.thread_positionM 	= threading.Thread(target = self._positionMonitor)
 		self.thread_internalE   = threading.Thread(target = self._internal_exe)
 		self.thread_externalE   = threading.Thread(target = self._external_exe)
 		self.thread_masterW		= threading.Thread(target = self._masterWatcher)
@@ -185,55 +185,7 @@ class Elevator(object):
  	# ---------- End of Class Constructor ---------------------------------------------------------------------
 
  	# ---------- Elevator Public functions (Interface) --------------------------------------------------------
-
-	def buttonsMonitor(self):
-		while True:
-			change_in_interface = 0
-			self.interface_resource.acquire()
-			for floor in range (self.number_of_floors):
-				for button in range (2):
-					current_value = self.driver.elev_get_button_signal(button, floor)
-					if ((current_value == 1 ) and (self.interface[floor][button] == 0)):
-						self.interface[floor][button] = 1
-						change_in_interface = 1
-			if(change_in_interface):
-				self._interfaceBroadcast()	
-			self.interface_resource.release()
-				
-			self.commands_resource.acquire()
-			for floor in range (self.number_of_floors):
-				self.commands[floor] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, floor)
-			self.commands_resource.release()	
-
-			time.sleep(0.25)	
-
-	def positionMonitor(self):
-		while True:
-			floor = self.driver.elev_get_floor_sensor_signal()
-			if floor != -1:
-				self.system_info[self.myIP]["lastF"] = floor
-			time.sleep(0.1) 
-
-	def lightsUpdate(self):
-		while True:
-			self.interface_resource.acquire()
-			self.commands_resource.acquire()
-			for floor in range(self.number_of_floors):
-				self.driver.elev_set_button_lamp(BUTTON_COMMAND, floor, self.commands[floor])
-				for button in range(2):		
-					self.driver.elev_set_button_lamp(button, floor, self.interface[floor][button])
-			self.commands_resource.release()
-			self.interface_resource.release()
-			
-			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
-			time.sleep(0.25)
-
-	def open_door(self, time_s):
-		self.driver.elev_set_door_open_lamp(1)
-		time.sleep(time_s)
-		self.driver.elev_set_door_open_lamp(0)
-
-	def run(self):
+ 		def run(self):
 		#Start object threads
 		self.thread_buttonsM.start()
 		self.thread_interfaceU.start()
@@ -263,6 +215,53 @@ class Elevator(object):
 		# self.thread_masterW.join()
 
 # ---------- Elevator Private functions (Not in Interface) -------------------------------------------------------
+	def _buttonsMonitor(self):
+		while True:
+			change_in_interface = 0
+			self.interface_resource.acquire()
+			for floor in range (self.number_of_floors):
+				for button in range (2):
+					current_value = self.driver.elev_get_button_signal(button, floor)
+					if ((current_value == 1 ) and (self.interface[floor][button] == 0)):
+						self.interface[floor][button] = 1
+						change_in_interface = 1
+			if(change_in_interface):
+				self._interfaceBroadcast()	
+			self.interface_resource.release()
+				
+			self.commands_resource.acquire()
+			for floor in range (self.number_of_floors):
+				self.commands[floor] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, floor)
+			self.commands_resource.release()	
+
+			time.sleep(0.25)	
+
+	def _positionMonitor(self):
+		while True:
+			floor = self.driver.elev_get_floor_sensor_signal()
+			if floor != -1:
+				self.system_info[self.myIP]["lastF"] = floor
+			time.sleep(0.1) 
+
+	def _lightsUpdate(self):
+		while True:
+			self.interface_resource.acquire()
+			self.commands_resource.acquire()
+			for floor in range(self.number_of_floors):
+				self.driver.elev_set_button_lamp(BUTTON_COMMAND, floor, self.commands[floor])
+				for button in range(2):		
+					self.driver.elev_set_button_lamp(button, floor, self.interface[floor][button])
+			self.commands_resource.release()
+			self.interface_resource.release()
+			
+			self.driver.elev_set_floor_indicator(self.system_info[self.myIP]["lastF"])
+			time.sleep(0.25)
+
+	def _open_door(self, time_s):
+		self.driver.elev_set_door_open_lamp(1)
+		time.sleep(time_s)
+		self.driver.elev_set_door_open_lamp(0)
+
 	def _system_init(self):
 		floor = -1
 		while floor != 0:
@@ -397,7 +396,7 @@ class Elevator(object):
 
 
 	#		Open the door for 3 seconds to the passagers to enter
-			self.open_door(3)
+			self._open_door(3)
 
 
 	def _go_to_destin_e(self, destination_o):
@@ -415,7 +414,7 @@ class Elevator(object):
 			self.driver.elev_set_motor_direction(0)
 			self._clear_external_request(destination,2)
 			#Open the door for 3 seconds to the passagers to enter
-			self.open_door(3)
+			self._open_door(3)
 
 			self.control_info[self.myIP]["ex_destin"] = -1
 			self._update_control_info(self.myIP, -1, None, None, None)
@@ -441,7 +440,7 @@ class Elevator(object):
 		self.driver.elev_set_motor_direction(0)
 		self._clear_external_request(destination,2)
 		#Open the door for 3 seconds to the passagers to enter
-		self.open_door(3)
+		self._open_door(3)
 		self.control_info[self.myIP]["ex_destin"] = -1
 		self._update_control_info(self.myIP, -1, None, None, None)
 		#Elevator is not busy anymore 
