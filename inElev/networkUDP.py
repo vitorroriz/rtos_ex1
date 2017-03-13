@@ -5,8 +5,6 @@ import struct
 import threading
 import pickle
 
-
-
 class networkUDP:
     'Class that defines a simple UDP server'
     # -------- Constructor for the class obj ----------------------------
@@ -26,15 +24,8 @@ class networkUDP:
         self.serveraddr = (self.serverhost, self.serverport)
         self.shutdown   =  False
         self.MAX_PKT_SIZE = 512
-
-        # if handlers_list == None:
-        #     #Dictionary to handlers functions (TO BE CHANGED BY OUR APP)
-        #     self.handler_dic = {"request" : self._handler_request, "chat" : self._handler_chat}
-        # else:
         self.handler_dic = handlers_list
     # -------- end of constructor ---------- ----------------------------
-
-
     def __makeserversocket(self, addr = None ):
         #Creating socket (UDP)
         if addr == None:
@@ -94,14 +85,17 @@ class networkUDP:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1) #enable broadcast
         
         data_out_packed = self._pack(message_type, data_in)
-        if (self.network_fault):
-            sock.sendto(self._pack(self.request_control,""), addr)
-            sock.sendto(self._pack(self.request_interface,""), addr)
+#        if (self.network_fault):
+#            try:
+#                sock.sendto(self._pack(self.request_control,""), addr)
+#                sock.sendto(self._pack(self.request_interface,""), addr)
+#                print "Network recovered!"
+#            except:
+#                print "FAULT: Failed to send UDP packet due to problem in the Network."
         try:
-            self.network_fault = 0
             for i in range (2):
             	sent = sock.sendto(data_out_packed, addr)
-
+            self.network_fault = 0
         except:
             self.network_fault = 1
             print "FAULT: Failed to send UDP packet due to problem in the Network."
@@ -109,9 +103,8 @@ class networkUDP:
         finally:
             sock.close()
 
-    def broadcast(self, message_type, data_in):
-        for i in range (2):
-           		self.sendto(('129.241.187.255',self.serverport), message_type, data_in)               
+    def broadcast(self, message_type, data_in):       
+   		self.sendto(('129.241.187.255',self.serverport), message_type, data_in)               
 
     def getmyip(self):
         dummysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

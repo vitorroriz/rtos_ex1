@@ -108,7 +108,6 @@ class Elevator(object):
 			self.interface[floor] = {0 : 0 , 1 : 0}
 		#Current internal requests in the elevator for each floor (commands)
 			self.commands[floor] = 0
-
 		#mutex to control access to the system info table
 		self.system_info_resource = threading.Lock()
 		#mutex to control access to the interface 	
@@ -117,7 +116,6 @@ class Elevator(object):
 		self.commands_resource = threading.Lock()
 		#mutex to control access to the motor
 		self.motor_resource = threading.Lock()
-
 		#Dictionary for registering the handlers for each kind of message received
 		self.handler_dic = {"MO"    : self._handler_send_order,  
 							"dOa_q" : self._handler_deadOa_question, 
@@ -187,8 +185,7 @@ class Elevator(object):
 		# self.thread_externalE.join()
 		# self.thread_server.join()
 		# self.thread_dOa_M.join()
-
-
+		
 # ---------- Elevator Private functions (Not in Interface) -------------------------------------------------------
 	def _buttonsMonitor(self):
 		while True:
@@ -301,7 +298,6 @@ class Elevator(object):
 			self.net_client.broadcast("ERD",self.interface)
 			self.interface_resource.release()
 
-
 	def _number_of_internal_requests(self):
 		c = 0
 		for floor in range (self.number_of_floors):
@@ -310,9 +306,7 @@ class Elevator(object):
 		return c
 
 	def _go_to_destin(self, destination_o):
-		#PRIVATE METHOD, it is not in the interface
 		#Method to be used to execute internal orders
-
 		while(self._number_of_internal_requests != 0):
 			destination = self.brain.internal_next_destin()	
 			print "Going to " + str(destination)
@@ -333,7 +327,6 @@ class Elevator(object):
 			self.system_info[self.myIP]["lastDir"] = direction
 			self.system_info_resource.release()
 
-
 			print "going to " + str(destination)
 			#Keep the elevator moving till it arrives in its destination
 			time_init = time.time()
@@ -353,24 +346,19 @@ class Elevator(object):
 					
 			self.driver.elev_set_motor_direction(0)
 			self._clear_internal_request(destination)
-
 			
 			if((direction == 1)):
 				if(destination == 3):	
 					self._clear_external_request(destination,1)		
 				else:
-					self._clear_external_request(destination,0)
-				
+					self._clear_external_request(destination,0)				
 			else:
 				if(destination == 0):
 					self._clear_external_request(destination,0)
 				else:
 					self._clear_external_request(destination,1)
-
-
 	#		Open the door for 3 seconds to the passagers to enter
 			self._open_door(3)
-
 
 	def _go_to_destin_e(self, destination_o):
 		#elevator is busy
@@ -388,7 +376,6 @@ class Elevator(object):
 			self._clear_external_request(destination,2)
 			#Open the door for 3 seconds to the passagers to enter
 			self._open_door(3)
-
 			self.control_info[self.myIP]["ex_destin"] = -1
 			self._update_control_info(self.myIP, -1, None, None, None)
 			#Elevator is not busy anymore		
@@ -447,7 +434,6 @@ class Elevator(object):
 					self._clear_internal_request(self.system_info[self.myIP]["lastF"])
 			time.sleep(1)
 
-
 	def _external_exe(self):
 		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
 		while True:
@@ -467,18 +453,15 @@ class Elevator(object):
 						else:			
 							self._send_order(elevator_to_send, floor)
 							print "I SENT THIS ORDER TO " + elevator_to_send + ":" + str(self.serverport) 
-				else:
-					
+				else:		
 					self.interface_resource.release()
 				time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
-	
 
-	# ---------- Extra functions for Fault handling ------------------------------------------------------------------
+	# ---------- Extra functions for Fault handling (dead elevator and motor loss, network handles itself)------------------------
 	def _dead_or_alive_monitor(self):
 		while True:
 			m_type = "dOa_q"
 			self.net_client.broadcast(m_type, "")
-			number_of_dead_elevators = 0
 			current_time = time.time()
 			for elevator in self.elevatorsList:
 				if ( (elevator != self.myIP) and (self.control_info[elevator]["dOa"] == 1)):
@@ -489,10 +472,7 @@ class Elevator(object):
 						self.control_info[elevator]["ex_destin"] = -1 
 						#broadcasting the new ex_destin (-1) and the new dOa value to update the control_info
 						self._update_control_info(elevator, -1, 0, None, None) #broadcast
-						#increasing the counter of dead elevators
-						number_of_dead_elevators = number_of_dead_elevators + 1
 						print "ALERT: ELEVATOR %s is DEAD or under problems for now!" %(elevator)
-
 			time.sleep(1.5)
 	
 	def _power_loss_handler(self, external_internaln, destination = None):
