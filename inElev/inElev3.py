@@ -8,38 +8,26 @@ import mutex
 import datetime
 from ctypes import cdll
 
-#Importing project modules network and brain
+#Importing project modules
 from networkUDP import networkUDP
 from Brain3 import  Brain
-#Elevator class
-#-----------Definitions for the interface with the .C driver files-----
-N_FLOORS = 4
-N_BUTTONS = 3
-DIRN_DOWN = -1
-DIRN_STOP = 0
-DIRN_UP = 1
-BUTTON_CALL_UP = 0
-BUTTON_CALL_DOWN = 1
-BUTTON_COMMAND = 2
-#--------------------------- end of definitions -----------------------
 
 class Elevator(object):
 	"""Class that represents an Elevator"""
 
 	# -------- Handlers to received messages to pass to the Network ----------------------------
-	def _handler__master_order(self,data_in, addr):
-		#Looking the floor the master told the elevator to go
+	def _handler_send_order(self,data_in, addr):
+		#Looking the floor the elevator told thigo
 		floor = data_in["floor"]
 		#Sending the elevator to the destin required
 		self._go_to_destin_e(floor)
-		print "I've Got a master order..."
+		print "I've got an order from elevator %s " %addr[0]
 
 	def _handler_update_control_info(self,data_in,addr):
 		elevator_IP  = data_in["elevator_IP"]
 		ex_destin = data_in["ex_destin"]
 		dOa = data_in["dOa"]
 		LRT = data_in["LRT"]
-		MMWS = data_in["M/MW/S"]
 
 		if  ex_destin != None:
 			self.control_info[elevator_IP]["ex_destin"] = ex_destin
@@ -47,8 +35,6 @@ class Elevator(object):
 			self.control_info[elevator_IP]["dOa"] = dOa
 		if LRT != None:
 			self.control_info[elevator_IP]["LRT"] = LRT
-		if MMWS != None:
-			self.control_info[elevator_IP]["M/MW/S"] = MMWS
 
 	def _handler_interface_update(self,data_in, addr):
 		self.interface_resource.acquire()
@@ -72,44 +58,40 @@ class Elevator(object):
 		self.interface_resource.release()
 
 	def _handler_deadOa_question(self, data_in, addr):
-		#updating the status of masterAlive
-		self.masterAlive = 1
 		#setting up the reply message and sendint it
 		m_type = "dOa_r"
 		addr_to_reply = (addr[0], self.serverport) 
 		self.net_client.sendto(addr_to_reply, m_type,"")
-		#print "SLAVE: Master asked if I'm alive and I replied at " + str(datetime.datetime.now()) + " to " + str(addr_to_reply)
 
 	def _handler_deadOa_reply(self,data_in, addr):
 		self.control_info[addr[0]]["dOa"] = 1
 		self.control_info[addr[0]]["LRT"] = time.time()
 		self._update_control_info(addr[0], None, None, self.control_info[addr[0]]["LRT"], None)
-		#print "MASTER: elevator " + addr[0] + " replied my question at " + str(self.control_info[addr[0]]["LRT"])
 
 	def _handler_request_interface(self, data_in, addr):
-		#Elevator informs his current values for interface (would be usually asked to the master(s))
+		#Elevator informs his current values for interface 
 		addr_to_reply = (addr[0], self.serverport)
 		m_type = "IU"
 		self.net_client.sendto(addr_to_reply, m_type, self.interface)
 
 	def _handler_request_control_info(self, data_in, addr):
 		m_type = "DU"
-		msg = {"elevator_IP" : self.myIP, "ex_destin": self.control_info[self.myIP]["ex_destin"], "dOa" : self.control_info[self.myIP]["dOa"] , "LRT" : self.control_info[self.myIP]["LRT"], "M/MW/S" : self.control_info[self.myIP]["M/MW/S"]}
+		msg = {"elevator_IP" : self.myIP, "ex_destin": self.control_info[self.myIP]["ex_destin"], "dOa" : self.control_info[self.myIP]["dOa"] , "LRT" : self.control_info[self.myIP]["LRT"]}
 		self.net_client.sendto((addr[0],self.serverport),m_type, msg)
     #-----------end of handlers definition--------------------------------------------------------------
 
     # ---------- Class Constructor ---------------------------------------------------------------------
-	def __init__(self, serverport = 20023, hierarchy = None):		
+	def __init__(self, serverport = 20023, elevatorsList = None):		
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
-		#Dictionary for the hierarchy in the system
-		if (hierarchy == None):
-			self.hierarchy = {"129.241.187.155" : 0, "129.241.187.38" : 1, "129.241.187.144" : 2}
-		#	self.hierarchy = {"129.241.187.153" : 0}
+		#Dictionary for the elevatorsList in the system
+		if (elevatorsList == None):
+			self.elevatorsList = {"129.241.187.155", "129.241.187.38", "129.241.187.144"}
+		#	self.elevatorsList = {"129.241.187.153"}
 		else:
-			self.hierarchy = hierarchy
+			self.elevatorsList = elevatorsList
 		#Number of elevators in the system
-		self.number_of_elevators = len(self.hierarchy)
+		self.number_of_elevators = len(self.elevatorsList)
 		#NUmber of floors
 		self.number_of_floors = 4
 		self.system_info = {}
@@ -117,9 +99,9 @@ class Elevator(object):
 		self.interface = {}
 		self.commands = {}
 		#Initializing data structures
-		for elevator in self.hierarchy.keys():
+		for elevator in self.elevatorsList:
 			self.system_info[elevator] =  {"lastF" : 0, "lastDir" : 0, "busy" : 0}
-			self.control_info[elevator] = {"ex_destin" : -1, "dOa" : 1, "LRT" : time.time(), "M/MW/S" : self.hierarchy[elevator]}
+			self.control_info[elevator] = {"ex_destin" : -1, "dOa" : 1, "LRT" : time.time()}
 
 		for floor in range(self.number_of_floors):
 		#Current external requests in the system for each floor (interface)
@@ -137,7 +119,7 @@ class Elevator(object):
 		self.motor_resource = threading.Lock()
 
 		#Dictionary for registering the handlers for each kind of message received
-		self.handler_dic = {"MO"    : self._handler__master_order,  
+		self.handler_dic = {"MO"    : self._handler_send_order,  
 							"dOa_q" : self._handler_deadOa_question, 
 							"dOa_r" : self._handler_deadOa_reply,
 							"IU"    : self._handler_interface_update,
@@ -148,26 +130,22 @@ class Elevator(object):
 							"RC"	: self._handler_request_control_info}
 
 		#Creating a network object to receive messages
-		self.net_server = networkUDP(serverport, serverhost = None, handlers_list = self.handler_dic)
+		self.net_server = networkUDP(serverport, elevatorsList, serverhost = None, handlers_list = self.handler_dic)
 		#Creating a network object to broadcast
-		self.net_bdcast = networkUDP(serverport, serverhost = self.broadcastaddr, handlers_list = self.handler_dic)
+		self.net_bdcast = networkUDP(serverport, elevatorsList, serverhost = self.broadcastaddr, handlers_list = self.handler_dic)
 		#Creating a network object to send messages
-		self.net_client = networkUDP(serverport)
+		self.net_client = networkUDP(serverport, elevatorsList)
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev2.so')
 		self.driver.elev_init(0)
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
-		#Flag that indicates othat the master is alive or not (used by master watcher)
-		self.masterAlive = 1
-		#Tolerance in seconds to receive a dead or a alive question (dOa_q) from master
-		self.masterWatcher_tolerance_time = 5
-		#Tolerance in seconds to the master receive a reply of dead or alive question from slave (dOa_r)
-		self.dead_or_alive_tolerance_time = 12
+		#Tolerance in seconds to  receive a reply of dead or alive question from a other instance of elevator
+		self.dead_or_alive_tolerance_time = 7
 		#Tolerance in seconds to consider the motor with problems (power loss or elevator stuck in rail)
 		self.motor_loss_tolerance_time = 10
 		#Creating a Brain object for the elevator
-		self.brain = Brain(self.system_info, self.interface, self.myIP, self.hierarchy, self.control_info, self.commands)
+		self.brain = Brain(self.system_info, self.interface, self.myIP, self.elevatorsList, self.control_info, self.commands)
 		#Threads of the elevator object
 		self.thread_buttonsM    = threading.Thread(target = self._buttonsMonitor)
 		self.thread_interfaceU  = threading.Thread(target = self._lightsUpdate)
@@ -176,7 +154,6 @@ class Elevator(object):
 		self.thread_positionM 	= threading.Thread(target = self._positionMonitor)
 		self.thread_internalE   = threading.Thread(target = self._internal_exe)
 		self.thread_externalE   = threading.Thread(target = self._external_exe)
-		self.thread_masterW		= threading.Thread(target = self._masterWatcher)
 		self.thread_dOa_M       = threading.Thread(target = self._dead_or_alive_monitor)
 		self.thread_server      = threading.Thread(target = self.net_server.listen)
 		self.thread_server_bdc  = threading.Thread(target = self.net_bdcast.listen)
@@ -185,8 +162,8 @@ class Elevator(object):
  	# ---------- End of Class Constructor ---------------------------------------------------------------------
 
  	# ---------- Elevator Public functions (Interface) --------------------------------------------------------
- 		def run(self):
-		#Start object threads
+	def run(self):
+	#Start object threads
 		self.thread_buttonsM.start()
 		self.thread_interfaceU.start()
 		self.thread_interfaceB.start()
@@ -195,14 +172,12 @@ class Elevator(object):
 		self.thread_internalE.start()
 		self.thread_externalE.start()	
 		self.thread_dOa_M.start()
-		self.thread_masterW.start()
 		self.thread_server.start()
 		self.thread_server_bdc.start()
 		
 		self._request_control_info();
 		self._request_interface();
-		
-
+	
 		# self.thread_buttonsM.join()
 		# self.thread_interfaceU.join()
 		# self.thread_interfaceB.join()
@@ -212,7 +187,7 @@ class Elevator(object):
 		# self.thread_externalE.join()
 		# self.thread_server.join()
 		# self.thread_dOa_M.join()
-		# self.thread_masterW.join()
+
 
 # ---------- Elevator Private functions (Not in Interface) -------------------------------------------------------
 	def _buttonsMonitor(self):
@@ -231,7 +206,7 @@ class Elevator(object):
 				
 			self.commands_resource.acquire()
 			for floor in range (self.number_of_floors):
-				self.commands[floor] |= self.driver.elev_get_button_signal(BUTTON_COMMAND, floor)
+				self.commands[floor] |= self.driver.elev_get_button_signal(2, floor)
 			self.commands_resource.release()	
 
 			time.sleep(0.25)	
@@ -248,7 +223,7 @@ class Elevator(object):
 			self.interface_resource.acquire()
 			self.commands_resource.acquire()
 			for floor in range(self.number_of_floors):
-				self.driver.elev_set_button_lamp(BUTTON_COMMAND, floor, self.commands[floor])
+				self.driver.elev_set_button_lamp(2, floor, self.commands[floor])
 				for button in range(2):		
 					self.driver.elev_set_button_lamp(button, floor, self.interface[floor][button])
 			self.commands_resource.release()
@@ -269,10 +244,8 @@ class Elevator(object):
 			floor = self.driver.elev_get_floor_sensor_signal()
 		self.driver.elev_set_motor_direction(0)
 
-		if self.control_info[self.myIP]["M/MW/S"] == 0:
-			#I am the master muuuhahahahha
-			for elevator in self.hierarchy:
-				self.system_info[elevator]["LRT"] = time.time()
+		for elevator in self.elevatorsList:
+			self.system_info[elevator]["LRT"] = time.time()
 
 	def _interfaceBroadcast(self):
 		m_type =  "IU"
@@ -285,10 +258,10 @@ class Elevator(object):
 			self.net_client.broadcast(m_type, self.system_info[self.myIP])
 			self.system_info_resource.release()
 			time.sleep(0.1)
-				
+
 	def _request_interface(self):
-		#self.net_client.sendto((elevator_IP, self.serverport), "RI", "")
 		self.net_client.broadcast("RI","")
+
 	def _request_control_info(self):
 		self.net_client.broadcast("RC","")
 
@@ -447,15 +420,9 @@ class Elevator(object):
 		self._set_busy_state(0)
 		print "Movement done!"
 
-	def _get_master(self):
-		#returns the IP of the current master of the system
-		for elevator in self.hierarchy:
-			if (self.control_info[elevator]["M/MW/S"]) == 0:
-				return elevator
-
-	def _master_order(self, elevator_IP, floor_n):
-		#Function to be called by the master, send a message of the MO (maste order) type,
-		#ordering a elevator to go to a specific floor to attend a external request
+	def _send_order(self, elevator_IP, floor_n):
+		#Send a message of MO type (an order),
+		#ordering an elevator to go to a specific floor to attend a external request
 		m_type = "MO"
 		msg = {"floor": floor_n}
 		addr = (elevator_IP, self.serverport)
@@ -463,7 +430,7 @@ class Elevator(object):
 
 	def _update_control_info(self, elevator_IP, ex_destin, dOa, LRT, MMWS):
 		m_type = "DU"
-		msg = {"elevator_IP" : elevator_IP, "ex_destin": ex_destin, "dOa" : dOa , "LRT" : LRT, "M/MW/S" : MMWS}
+		msg = {"elevator_IP" : elevator_IP, "ex_destin": ex_destin, "dOa" : dOa , "LRT" : LRT}
 		self.net_client.broadcast(m_type, msg)
 		
 	def _internal_exe(self):
@@ -484,98 +451,47 @@ class Elevator(object):
 	def _external_exe(self):
 		i_dic_ext = {"uf1" : 0 , "uf2" : 1, "uf3" : 2, "df2" : 1, "df3" : 2, "df4" : 3}
 		while True:
-			#checking if i am the master
-			if (self.control_info[self.myIP]["M/MW/S"] == 0):
-				for floor in self.interface.keys():
-					self.interface_resource.acquire()
-					if ( (self.interface[floor][0] == 1) or (self.interface[floor][1] == 1 )):
-						self.interface_resource.release()
-						elevator_to_send = self.brain.elevator_to_send(floor)
-						if elevator_to_send != -1:
-							print "MASTER: sending : " + elevator_to_send + " to attend the floor %i" %floor  
-							self.control_info[elevator_to_send]["ex_destin"] = floor
-							self._update_control_info(elevator_to_send, floor, None, None, None)						
-							if (elevator_to_send == self.myIP):
-								print "MASTER: Sending a thread to handle my movement"
-								thread_execution = threading.Thread(target = self._go_to_destin_e, args = (floor,))
-								thread_execution.start()
-							else:			
-								self._master_order(elevator_to_send, floor)
-								print "I SENT THIS ORDER TO " + elevator_to_send + ":" + str(self.serverport) 
-					else:
-						
-						self.interface_resource.release()
-					time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
-		
+			for floor in self.interface.keys():
+				self.interface_resource.acquire()
+				if ( (self.interface[floor][0] == 1) or (self.interface[floor][1] == 1 )):
+					self.interface_resource.release()
+					elevator_to_send = self.brain.elevator_to_send(floor)
+					if elevator_to_send != -1:
+						print "Sending : " + elevator_to_send + " to attend the floor %i" %floor  
+						self.control_info[elevator_to_send]["ex_destin"] = floor
+						self._update_control_info(elevator_to_send, floor, None, None, None)						
+						if (elevator_to_send == self.myIP):
+							print "Sending a thread to handle my movement"
+							thread_execution = threading.Thread(target = self._go_to_destin_e, args = (floor,))
+							thread_execution.start()
+						else:			
+							self._send_order(elevator_to_send, floor)
+							print "I SENT THIS ORDER TO " + elevator_to_send + ":" + str(self.serverport) 
+				else:
+					
+					self.interface_resource.release()
+				time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
+	
 
 	# ---------- Extra functions for Fault handling ------------------------------------------------------------------
-	def _masterWatcher(self):
-		while True:
-			if self.control_info[self.myIP]["M/MW/S"] == 1:
-				print "MASTERWatcher: masterAlive = " + str(self.masterAlive) + " at " + str(datetime.datetime.now())
-				#I am the master watcher!	
-				if self.masterAlive != 1:
-					self._switchmaster()
-				else:
-					self.masterAlive = 0		
-			time.sleep(self.masterWatcher_tolerance_time)
-		
-
-	def _switchmaster(self):
-		#I am the new master, muuuuuhahahaha!!!!!
-
-		#looking for slaves that can be the new master watcher
-		possible_master_watchers = [k for k,v in self.hierarchy.iteritems() if v == 2]
-		#just pick the first occurence
-		try:
-			new_master_watcher = possible_master_watchers[0]
-			#telling everybody about the new master_watcher
-			self._update_control_info(new_master_watcher, None, None, None, 1)
-		except:
-			print "NEW MASTER: I have no slaves to watch me, sorry!"
-
-		#getting the IP of the old master to use later in this current function	
-		old_master = self._get_master()
-		
-		#telling everybody I am the new master OF THE UNIVERSE
-		self._update_control_info(self.myIP, None, None, None, 0)
-		#telling everybody that the old master is a poor slave now >:D
-		self._update_control_info(old_master, None, None, None, 2)
-		#finally becoming the master and handling the system
-		self.control_info[self.myIP]["M/MW/S"] = 0
-
-		for elevator in self.hierarchy.keys():
-			self.control_info[elevator]["LRT"] = time.time()
-
 	def _dead_or_alive_monitor(self):
 		while True:
-			if (self.control_info[self.myIP]["M/MW/S"] == 0):
-				#if this is true, I AM THE MASTER!! Muhahahaha
-				m_type = "dOa_q"
-				self.net_client.broadcast(m_type, "")
-				#print "I AM MASTER (48): I HAVE SENT A QUESTION AT " + str(datetime.datetime.now())
-				number_of_dead_elevators = 0
-				current_time = time.time()
-				for elevator in self.hierarchy:
-					if ( (elevator != self.myIP) and (self.control_info[elevator]["dOa"] == 1)):
-						if(int(current_time - self.control_info[elevator]["LRT"]) > self.dead_or_alive_tolerance_time):
-							#declare elevator as dead
-							self.control_info[elevator]["dOa"] = 0
-							#release its ex_destin field, so we can attend a possible external destin the elevator was going before
-							self.control_info[elevator]["ex_destin"] = -1 
-							#broadcasting the new ex_destin (-1) and the new dOa value to update the control_info
-							self._update_control_info(elevator, -1, 0, None, None) #broadcast
-							#increasing the counter of dead elevators
-							number_of_dead_elevators = number_of_dead_elevators + 1
-							#if the master thinks that everybody is dead, the master is probably disconnected
-							#but it just makes sense to take some action if are at least 3 elevatos in the network
-							# print "ALERT: ELEVATOR %s is DEAD or under problems!" %elevator
-							# if (self.number_of_elevators > 2):
-								# if number_of_dead_elevators == (self.number_of_elevators - 1): 
-									# self.control_info[self.myIP]["M/MW/S"] = 2
-									# print "MASTER: Nobody is replying, I'm probably disconnected"
-									# print "MASTER: Becoming a Slave!" 
-
+			m_type = "dOa_q"
+			self.net_client.broadcast(m_type, "")
+			number_of_dead_elevators = 0
+			current_time = time.time()
+			for elevator in self.elevatorsList:
+				if ( (elevator != self.myIP) and (self.control_info[elevator]["dOa"] == 1)):
+					if(int(current_time - self.control_info[elevator]["LRT"]) > self.dead_or_alive_tolerance_time):
+						#declare elevator as dead
+						self.control_info[elevator]["dOa"] = 0
+						#release its ex_destin field, so we can attend a possible external destin the elevator was going before
+						self.control_info[elevator]["ex_destin"] = -1 
+						#broadcasting the new ex_destin (-1) and the new dOa value to update the control_info
+						self._update_control_info(elevator, -1, 0, None, None) #broadcast
+						#increasing the counter of dead elevators
+						number_of_dead_elevators = number_of_dead_elevators + 1
+					#    print "ALERT: ELEVATOR %s is DEAD or under problems for now!" %(elevator)
 
 			time.sleep(1.5)
 	

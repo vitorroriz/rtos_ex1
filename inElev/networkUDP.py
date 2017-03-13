@@ -8,25 +8,11 @@ import pickle
 
 class networkUDP:
     'Class that defines a simple UDP server'
-
-    # -------- Handlers to received packets ----------------------------
-    # def _handler_request(self,data_in):
-    #     print "This is a request handler:"
-    #     print "There was a request in floor: " + data_in["floor"]
-    #     print "This was a request of type:   " + data_in["request_n"]
-    #     print "The request had the msg       :"+ data_in["msg"]
-
-
-    # def _handler_chat(self,data_in):
-    #     print "This is a chat handler"
-    #     print data_in["msg"]
-    #-----------end of handlers definition-------------------------------
-
     # -------- Constructor for the class obj ----------------------------
-    def __init__(self, serverport, serverhost = None, handlers_list = None):
+    def __init__(self, serverport, elevatorsList,serverhost = None, handlers_list = None):
         self.serverport = int(serverport)
         self.myIP = self.getmyip()
-
+        self.elevatorsList = elevatorsList
         if serverhost:
             self.serverhost = serverhost
         else:
@@ -80,20 +66,20 @@ class networkUDP:
             try:
                 #Waiting for new data
                 data, addr = sock.recvfrom(self.MAX_PKT_SIZE)
-
-                if addr[0] != self.myIP:
-                    data_out, data_in = self._unpack(data)
-#                    print 'received %s bytes from %s' % (len(data), addr)
-                    m_type = data_out["m_type"]
-                    #Creating threads to handle new income data according to its type
-                    t = threading.Thread(target = self.handler_dic[m_type], args = (data_in, addr))
-                    t.start()
-
+                if(addr[0] in self.elevatorsList):
+                    if (addr[0] != self.myIP):
+                        data_out, data_in = self._unpack(data)
+#                       print 'received %s bytes from %s' % (len(data), addr)
+                        m_type = data_out["m_type"]
+                        #Creating threads to handle new income data according to its type
+                        t = threading.Thread(target = self.handler_dic[m_type], args = (data_in, addr))
+                        t.start()
+            
             except KeyboardInterrupt:
                 self.shutdown = True
-            except:
-                print "FAULT: Failed to receive UDP packet due to problem in the Network."
-                time.sleep(1)
+            # except:
+            #     print "FAULT: Failed to receive UDP packet due to problem in the Network."
+            #     time.sleep(1)
 
         sock.close()
      
@@ -114,12 +100,12 @@ class networkUDP:
             sock.close()
 
     def broadcast(self, message_type, data_in):
-	for i in range (2):
-       		self.sendto(('129.241.187.255',self.serverport), message_type, data_in)               
+        for i in range (2):
+           		self.sendto(('129.241.187.255',self.serverport), message_type, data_in)               
 
     def getmyip(self):
-            dummysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            dummysocket.connect(('8.8.8.8',80)) #connecting to google to find my IP
-            return dummysocket.getsockname()[0]
+        dummysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        dummysocket.connect(('8.8.8.8',80)) #connecting to google to find my IP
+        return dummysocket.getsockname()[0]
 
 

@@ -1,9 +1,9 @@
 class Brain(object):
 	"""docstring for Brain"""
-	def __init__(self, system_info, externals, myIP, hierarchy, control_info, commands):
+	def __init__(self, system_info, externals, myIP, elevatorsList, control_info, commands):
 		self.system_info = system_info
 		self.externals = externals
-		self.hierarchy = hierarchy
+		self.elevatorsList = elevatorsList
 		self.control_info = control_info
 		self.commands = commands
 		self.myIP = myIP
@@ -51,7 +51,7 @@ class Brain(object):
 
 	def elevator_to_send(self, floor):
 		distances = {}
-		for elevator in self.hierarchy.keys():
+		for elevator in self.elevatorsList:
 			if ((self.system_info[elevator]["busy"] == 0) and (self.control_info[elevator]["dOa"]) and (self._is_destin_valid(floor))):
 				distances[elevator] = abs(floor - self.system_info[elevator]["lastF"])
 		try:
@@ -62,7 +62,7 @@ class Brain(object):
 
 
 	def _is_destin_valid(self, floor):
-		for elevator in self.hierarchy.keys():
+		for elevator in self.elevatorsList:
 			if self.control_info[elevator]["ex_destin"] == floor:			
 				return 0
 		return 1
