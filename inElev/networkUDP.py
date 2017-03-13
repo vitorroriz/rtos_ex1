@@ -22,7 +22,6 @@ class networkUDP:
             self.serverhost = self.myIP
             
         self.serveraddr = (self.serverhost, self.serverport)
-        self.shutdown   =  False
         self.MAX_PKT_SIZE = 512
         self.handler_dic = handlers_list
     # -------- end of constructor ---------- ----------------------------
@@ -70,9 +69,6 @@ class networkUDP:
                         #Creating threads to handle new income data according to its type
                         t = threading.Thread(target = self.handler_dic[m_type], args = (data_in, addr))
                         t.start()
-            
-            except KeyboardInterrupt:
-                self.shutdown = True
             except:
                 print "FAULT: Failed to receive UDP packet due to problem in the Network."
                 time.sleep(1)
