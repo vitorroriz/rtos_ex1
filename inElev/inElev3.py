@@ -81,24 +81,23 @@ class Elevator(object):
     #-----------end of handlers definition--------------------------------------------------------------
 
     # ---------- Class Constructor ---------------------------------------------------------------------
-	def __init__(self, serverport = 20023, elevatorsList = None):		
+	def __init__(self ,serverport = 20023, elevatorsList = None, number_of_floors = 4):		
 		self.broadcastaddr = "129.241.187.255"
 		self.serverport = serverport
 		#Dictionary for the elevatorsList in the system
 		if (elevatorsList == None):
-			self.elevatorsList = {"129.241.187.155", "129.241.187.38", "129.241.187.144"}
-		#	self.elevatorsList = {"129.241.187.153"}
+			self.elevatorsList = {"129.241.187.48", "129.241.187.38", "129.241.187.46"}
 		else:
 			self.elevatorsList = elevatorsList
 		#Number of elevators in the system
 		self.number_of_elevators = len(self.elevatorsList)
 		#NUmber of floors
-		self.number_of_floors = 4
+		self.number_of_floors = number_of_floors
+		#Initializing data structures
 		self.system_info = {}
 		self.control_info = {}
 		self.interface = {}
 		self.commands = {}
-		#Initializing data structures
 		for elevator in self.elevatorsList:
 			self.system_info[elevator] =  {"lastF" : 0, "lastDir" : 0, "busy" : 0}
 			self.control_info[elevator] = {"ex_destin" : -1, "dOa" : 1, "LRT" : time.time()}
@@ -129,13 +128,13 @@ class Elevator(object):
 
 		#Creating a network object to receive messages
 		self.net_server = networkUDP(serverport, elevatorsList, serverhost = None, handlers_list = self.handler_dic)
-		#Creating a network object to broadcast
+		#Creating a network object to listen to broadcast messages
 		self.net_bdcast = networkUDP(serverport, elevatorsList, serverhost = self.broadcastaddr, handlers_list = self.handler_dic)
 		#Creating a network object to send messages
 		self.net_client = networkUDP(serverport, elevatorsList)
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev2.so')
-		self.driver.elev_init(0)
+		self.driver.elev_init(0) #0-> elevator hardware, #1-> elevator simulator
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
 		#Tolerance in seconds to  receive a reply of dead or alive question from a other instance of elevator
@@ -185,7 +184,7 @@ class Elevator(object):
 		# self.thread_externalE.join()
 		# self.thread_server.join()
 		# self.thread_dOa_M.join()
-		
+
 # ---------- Elevator Private functions (Not in Interface) -------------------------------------------------------
 	def _buttonsMonitor(self):
 		while True:
@@ -479,7 +478,7 @@ class Elevator(object):
 		self.control_info[self.myIP]["dOa"] = 0
 		self.control_info[self.myIP]["ex_destin"] = -1
 		self._update_control_info(self.myIP, -1, 0, None, None)
-		print "FAULT: Elevator got stuck while moving to floor %i. Possible causes: Motor power loss, problems in the rail." %(destination+1)
+		print "FAULT: Elevator got stuck while moving to floor %i. Possible causes: Motor power loss, problems in the rail." %(destination)
 
 		while(self.driver.elev_get_floor_sensor_signal() != destination):
 			time.sleep(0.01)
