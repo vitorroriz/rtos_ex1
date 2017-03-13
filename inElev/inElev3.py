@@ -134,7 +134,7 @@ class Elevator(object):
 		self.net_client = networkUDP(serverport, elevatorsList)
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev2.so')
-		self.driver.elev_init(0) #0-> elevator hardware, #1-> elevator simulator
+		self.driver.elev_init(1) #0-> elevator hardware, #1-> elevator simulator
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
 		#Tolerance in seconds to  receive a reply of dead or alive question from a other instance of elevator
