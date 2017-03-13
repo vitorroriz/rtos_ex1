@@ -491,7 +491,7 @@ class Elevator(object):
 						self._update_control_info(elevator, -1, 0, None, None) #broadcast
 						#increasing the counter of dead elevators
 						number_of_dead_elevators = number_of_dead_elevators + 1
-					#    print "ALERT: ELEVATOR %s is DEAD or under problems for now!" %(elevator)
+						print "ALERT: ELEVATOR %s is DEAD or under problems for now!" %(elevator)
 
 			time.sleep(1.5)
 	

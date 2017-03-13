@@ -27,7 +27,7 @@ class Brain(object):
 		except:
 			#if there is no more potential destination for the internal part, min() causes an excepetion, then we 
 			#declare that elevator stopped (lastDir = 0) and we release the elevator to be allocated to external 
-			#requestions by the master (busy = 0)
+			#requests (busy = 0)
 			self.system_info[self.myIP]["lastDir"] = 0
 			#Also we need to return -1 to signalize this event to the caller funciton
 			return -1

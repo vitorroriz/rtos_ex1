@@ -6,6 +6,7 @@ import threading
 import pickle
 
 
+
 class networkUDP:
     'Class that defines a simple UDP server'
     # -------- Constructor for the class obj ----------------------------
@@ -13,6 +14,10 @@ class networkUDP:
         self.serverport = int(serverport)
         self.myIP = self.getmyip()
         self.elevatorsList = elevatorsList
+        #Variable and constants to handle network fault
+        self.network_fault = 0
+        self.request_interface = "RI"
+        self.request_control = "RC"
         if serverhost:
             self.serverhost = serverhost
         else:
@@ -77,9 +82,9 @@ class networkUDP:
             
             except KeyboardInterrupt:
                 self.shutdown = True
-            # except:
-            #     print "FAULT: Failed to receive UDP packet due to problem in the Network."
-            #     time.sleep(1)
+            except:
+                print "FAULT: Failed to receive UDP packet due to problem in the Network."
+                time.sleep(1)
 
         sock.close()
      
@@ -89,11 +94,16 @@ class networkUDP:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1) #enable broadcast
         
         data_out_packed = self._pack(message_type, data_in)
-
+        if (self.network_fault):
+            sock.sendto(self._pack(self.request_control,""), addr)
+            sock.sendto(self._pack(self.request_interface,""), addr)
         try:
-	       for i in range (2):
+            self.network_fault = 0
+            for i in range (2):
             	sent = sock.sendto(data_out_packed, addr)
+
         except:
+            self.network_fault = 1
             print "FAULT: Failed to send UDP packet due to problem in the Network."
             time.sleep(1)
         finally:
