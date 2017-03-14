@@ -21,6 +21,7 @@ def main():
 	while True:
 		t = str(datetime.datetime.now().replace(microsecond=0))
 		print t + " Elevator: " + elevator1.myIP + " busy = " + str(elevator1.system_info[ip]["busy"]) + " at floor " + str(elevator1.system_info[ip]["lastF"] )
+		print "Interface: " + str(elevator1.interface)
 		time.sleep(1)
 	
 	

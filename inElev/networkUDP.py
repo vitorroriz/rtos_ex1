@@ -81,13 +81,13 @@ class networkUDP:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1) #enable broadcast
         
         data_out_packed = self._pack(message_type, data_in)
-#        if (self.network_fault):
-#            try:
-#                sock.sendto(self._pack(self.request_control,""), addr)
-#                sock.sendto(self._pack(self.request_interface,""), addr)
-#                print "Network recovered!"
-#            except:
-#                print "FAULT: Failed to send UDP packet due to problem in the Network."
+        if (self.network_fault):
+            try:
+               sock.sendto(self._pack(self.request_control,""), addr)
+               sock.sendto(self._pack(self.request_interface,""), addr)
+               print "Network recovered!"
+            except:
+               print "FAULT: Failed to send UDP packet due to problem in the Network."
         try:
             for i in range (2):
             	sent = sock.sendto(data_out_packed, addr)
