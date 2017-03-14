@@ -15,8 +15,8 @@ class networkUDP:
         self.elevatorsList = elevatorsList
         #Variable and constants to handle network fault
         self.network_fault = 0
-        self.request_interface = "RI"
-        self.request_control = "RC"
+        #self.request_interface = "RI"
+        #self.request_control = "RC"
         if serverhost:
             self.serverhost = serverhost
         else:
