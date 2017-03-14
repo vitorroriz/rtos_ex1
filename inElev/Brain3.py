@@ -56,6 +56,9 @@ class Brain(object):
 				distances[elevator] = abs(floor - self.system_info[elevator]["lastF"])
 		try:
 			elevator_selected = min(distances, key=distances.get)
+			print "ELEVATOR SELECTED: " + elevator_selected
+			print "DISTANCES: " + str(distances)
+			print "LIST : " + str(elevatorsList)
 			return elevator_selected
 		except:
 			return -1
