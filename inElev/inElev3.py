@@ -134,11 +134,11 @@ class Elevator(object):
 		self.net_client = networkUDP(serverport, elevatorsList)
 		#Creating a driver object
 		self.driver = cdll.LoadLibrary('./libelev2.so')
-		self.driver.elev_init(0) #0-> elevator hardware, #1-> elevator simulator
+		self.driver.elev_init(1) #0-> elevator hardware, #1-> elevator simulator
 		#getting my IP
 		self.myIP = self.net_server.getmyip()
 		#Tolerance in seconds to  receive a reply of dead or alive question from a other instance of elevator
-		self.dead_or_alive_tolerance_time = 7
+		self.dead_or_alive_tolerance_time = 12
 		#Tolerance in seconds to consider the motor with problems (power loss or elevator stuck in rail)
 		self.motor_loss_tolerance_time = 10
 		#Creating a Brain object for the elevator
@@ -439,6 +439,7 @@ class Elevator(object):
 			for floor in self.interface.keys():
 				self.interface_resource.acquire()
 				if ( (self.interface[floor][0] == 1) or (self.interface[floor][1] == 1 )):
+					print "Request for floor %i" %floor
 					self.interface_resource.release()
 					elevator_to_send = self.brain.elevator_to_send(floor)
 					if elevator_to_send != -1:
@@ -451,8 +452,11 @@ class Elevator(object):
 							thread_execution.start()
 						else:			
 							self._send_order(elevator_to_send, floor)
-							print "I SENT THIS ORDER TO " + elevator_to_send + ":" + str(self.serverport) 
-				else:		
+							print "I SENT THIS ORDER TO " + elevator_to_send + ":" + str(self.serverport)
+					else:
+						print "NO ELEVATOR TO SEND" 
+				else:
+					print "No request for floor %i" %floor		
 					self.interface_resource.release()
 				time.sleep(1) #sleep for a while inside the floor so the elevator can take the order
 
